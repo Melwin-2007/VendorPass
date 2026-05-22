@@ -15,7 +15,7 @@ import { router } from 'expo-router';
 import { useAuth } from '@/context/auth';
 import { useTheme } from '@/hooks/use-theme';
 import { Spacing } from '@/constants/theme';
-import { SymbolView } from 'expo-symbols';
+import { SymbolView } from '@/components/symbol-view';
 
 export default function SignUpScreen() {
   const { signUp, signupProgress, loading } = useAuth();
@@ -119,7 +119,7 @@ export default function SignUpScreen() {
     setBusinessPhoto('https://images.unsplash.com/photo-1578916171728-46686eac8d58?w=500&auto=format&fit=crop&q=80');
   };
 
-  const passwordsMatch = password && confirmPassword && password === confirmPassword;
+  const passwordsMatch = !!password && !!confirmPassword && password === confirmPassword;
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
@@ -179,13 +179,13 @@ export default function SignUpScreen() {
                 onChangeText={setUsername}
                 autoCapitalize="none"
               />
-              {usernameLoading && <ActivityIndicator size="small" color={theme.primary} />}
-              {!usernameLoading && usernameAvailable === true && (
+              {usernameLoading ? <ActivityIndicator size="small" color={theme.primary} /> : null}
+              {!usernameLoading && usernameAvailable === true ? (
                 <SymbolView tintColor={theme.success} name="checkmark.circle.fill" size={20} />
-              )}
-              {!usernameLoading && usernameAvailable === false && (
+              ) : null}
+              {!usernameLoading && usernameAvailable === false ? (
                 <SymbolView tintColor={theme.error} name="xmark.circle.fill" size={20} />
-              )}
+              ) : null}
             </View>
           </View>
 
@@ -290,9 +290,9 @@ export default function SignUpScreen() {
                 onChangeText={setConfirmPassword}
                 autoCapitalize="none"
               />
-              {passwordsMatch && (
+              {passwordsMatch ? (
                 <SymbolView tintColor={theme.success} name="checkmark.circle.fill" size={20} />
-              )}
+              ) : null}
             </View>
           </View>
         </View>
@@ -381,7 +381,7 @@ export default function SignUpScreen() {
                 backgroundColor: agreeTerms ? theme.primary : 'transparent',
               },
             ]}>
-            {agreeTerms && <SymbolView tintColor="#fff" name="checkmark" size={14} />}
+            {agreeTerms ? <SymbolView tintColor="#fff" name="checkmark" size={14} /> : null}
           </View>
           <Text style={[styles.termsText, { color: theme.text }]}>
             I agree to the <Text style={{ color: theme.primary }}>Terms of Service</Text> and{' '}

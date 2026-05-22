@@ -3,7 +3,7 @@ import { StyleSheet, View, Text, ScrollView, Pressable, Platform } from 'react-n
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/hooks/use-theme';
 import { BottomTabInset, Spacing } from '@/constants/theme';
-import { SymbolView } from 'expo-symbols';
+import { SymbolView } from '@/components/symbol-view';
 
 export default function ExploreScreen() {
   const theme = useTheme();

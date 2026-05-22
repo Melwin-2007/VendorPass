@@ -13,7 +13,7 @@ import { router } from 'expo-router';
 import { useAuth } from '@/context/auth';
 import { useTheme } from '@/hooks/use-theme';
 import { Spacing } from '@/constants/theme';
-import { SymbolView } from 'expo-symbols';
+import { SymbolView } from '@/components/symbol-view';
 
 export default function OtpScreen() {
   const { completeOtp, loading } = useAuth();

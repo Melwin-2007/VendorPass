@@ -86,9 +86,9 @@ export default function EntryScreen() {
           <Text style={styles.taglineSub}>&quot;Your Business. Your Score. Your Future.&quot;</Text>
         </Animated.View>
 
-        {showSpinner && (
+        {showSpinner ? (
           <ActivityIndicator size="small" color={theme.highlight} style={styles.loader} />
-        )}
+        ) : null}
       </View>
     </View>
   );
