@@ -181,7 +181,7 @@ export default function SignUpScreen() {
     }, password);
 
     if (success) {
-      router.push('/(auth)/otp');
+      router.push('/(auth)/success');
     }
   };
 
@@ -230,7 +230,13 @@ export default function SignUpScreen() {
         <View style={styles.headerContainer}>
           <View style={styles.headerLeft}>
             <Pressable 
-              onPress={() => router.back()} 
+              onPress={() => {
+                if (router.canGoBack()) {
+                  router.back();
+                } else {
+                  router.replace('/(auth)/role-selection');
+                }
+              }} 
               style={({ pressed }) => [
                 styles.backButton,
                 { transform: [{ scale: pressed ? 0.95 : 1.0 }] }

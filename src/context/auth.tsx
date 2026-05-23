@@ -112,12 +112,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signUp = async (profile: Omit<UserProfile, 'role' | 'score'>, password?: string): Promise<boolean> => {
     setLoading(true);
-    await new Promise((resolve) => setTimeout(resolve, 800));
-    setTempProfile(profile);
-    if (password) {
-      setTempPassword(password);
+    const { error } = await supabase.auth.signUp({
+      email: profile.email,
+      password: password || 'DefaultPassword123!',
+      options: {
+        data: {
+          name: profile.name,
+          username: profile.username,
+          phone: profile.phone,
+          role: selectedSignupRole || 'VENDOR',
+          selfie: profile.selfie,
+          businessPhoto: profile.businessPhoto,
+          score: selectedSignupRole === 'VENDOR' ? 620 : 0,
+        },
+      },
+    });
+
+    if (error) {
+      console.error('Supabase signUp error:', error.message);
+      setLoading(false);
+      return false;
     }
-    setSignupProgress(0.8);
+
+    setSignupProgress(1.0);
     setLoading(false);
     return true;
   };
