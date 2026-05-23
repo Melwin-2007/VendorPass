@@ -9,6 +9,7 @@ import {
   Modal,
   TextInput,
   Image,
+  TouchableOpacity,
 } from 'react-native';
 import { BottomTabBar } from '@/components/BottomTabBar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -107,6 +108,11 @@ export default function DashboardScreen() {
   const [gaugeOffset, setGaugeOffset] = useState(220);
 
   // Local state for vendor activities
+  const [localTrustScoreData, setLocalTrustScoreData] = useState<any>(null);
+  const [isCalculating, setIsCalculating] = useState(false);
+  const activeTrustScoreData = localTrustScoreData || user?.trustScoreData;
+  const currentScore = activeTrustScoreData?.trust_score ?? user?.score ?? 742;
+
   const [activities, setActivities] = useState([
     { id: '1', type: 'PAYMENT', title: 'Amul Distributors', date: 'Today, 10:30 AM', amount: '- ₹4,200', status: 'completed' },
     { id: '2', type: 'SALE', title: 'Store Sale: UPI', date: 'Yesterday, 06:15 PM', amount: '+ ₹840', status: 'verified' },
@@ -120,16 +126,19 @@ export default function DashboardScreen() {
     { id: '103', name: 'Pooja Vegetable Cart', score: 615, amount: '₹5,000', rate: '15% p.a.', date: '2 days ago' },
   ]);
 
-  // Animate the gauge on mount
+  // Animate the gauge when currentScore changes
   useEffect(() => {
-    const currentScore = user?.score ?? 742;
-    const scorePct = currentScore / 1000;
+    const maxScore = 850; // TrustScore typically goes up to 850
+    const boundedScore = Math.min(Math.max(currentScore, 0), maxScore);
+    const scorePct = boundedScore / maxScore;
     const targetOffset = 220 * (1 - scorePct);
+    
+    // Slight delay to allow render then trigger CSS/SVG animation
     const timer = setTimeout(() => {
       setGaugeOffset(targetOffset);
-    }, 300);
+    }, 150);
     return () => clearTimeout(timer);
-  }, [user?.score]);
+  }, [currentScore]);
 
   // Helper for showing a temporary toast notification
   const showToast = (message: string) => {
@@ -140,14 +149,18 @@ export default function DashboardScreen() {
   };
 
   const handleRecordSale = async () => {
-    if (!saleAmount) return;
-    const numericAmt = parseFloat(saleAmount.replace(/,/g, ''));
-    if (isNaN(numericAmt)) return;
-
-    if (!user?.id) {
-      showToast('❌ User ID missing. Please refresh the app or log in again.');
-      console.warn("Attempted to record sale but user.id is missing:", user);
+    if (!user?.id || isCalculating) {
+      if (!user?.id) showToast('❌ User ID missing. Please refresh the app.');
       return;
+    }
+
+    setIsCalculating(true);
+    
+    // Convert to number
+    const numericAmt = Number(saleAmount.replace(/[^0-9.-]+/g, ""));
+    if (isNaN(numericAmt)) {
+        setIsCalculating(false);
+        return;
     }
 
     // Actually insert into Supabase
@@ -161,6 +174,7 @@ export default function DashboardScreen() {
     if (insertError) {
       showToast('❌ Failed to record sale. Check connection.');
       console.error("Sale insert error", insertError);
+      setIsCalculating(false);
       return;
     }
 
@@ -171,11 +185,16 @@ export default function DashboardScreen() {
       body: { record: { user_id: user.id } }
     });
 
+    setIsCalculating(false);
+
     if (edgeError) {
       console.error("Edge Function Error:", edgeError);
       showToast('⚠️ Sale recorded, but TrustScore engine failed to run.');
     } else {
       console.log("Edge Function Response:", edgeData);
+      if (edgeData?.parsedTrustScoreData) {
+        setLocalTrustScoreData(edgeData.parsedTrustScoreData);
+      }
     }
 
     const newActivity = {
@@ -252,20 +271,27 @@ export default function DashboardScreen() {
   };
 
   const renderVendorDashboard = () => {
-    const trustScoreData = user?.trustScoreData;
-    const currentScore = trustScoreData?.trust_score ?? user?.score ?? 742;
-
-    // Standing calculations
-    let standingText = trustScoreData?.risk_tier ? `${trustScoreData.risk_tier} Standing` : 'Good Standing';
-    let standingColor = '#2D7D46'; 
-    let standingBg = '#2D7D4620';
-    if (currentScore >= 750 || trustScoreData?.risk_tier === 'Platinum') {
-      standingText = trustScoreData?.risk_tier ? `${trustScoreData.risk_tier} Standing` : 'Excellent Standing';
+    // Standing and Color calculations based on currentScore
+    let standingText = 'Good Standing';
+    let standingColor = '#D4820A'; // Default Orange
+    let standingBg = '#D4820A20';
+    let gaugeColor = '#D4820A';
+    
+    if (currentScore >= 750) {
+      standingText = 'Excellent Standing';
+      standingColor = '#2D7D46'; // Green
       standingBg = '#2D7D4625';
-    } else if (currentScore < 650 || trustScoreData?.risk_tier === 'Bronze' || trustScoreData?.risk_tier === 'Unrated') {
-      standingText = trustScoreData?.risk_tier ? `${trustScoreData.risk_tier} Standing` : 'Fair Standing';
-      standingColor = '#CC8600'; 
+      gaugeColor = '#2D7D46';
+    } else if (currentScore < 600) {
+      standingText = 'Poor Standing';
+      standingColor = '#E74C3C'; // Red
+      standingBg = '#E74C3C20';
+      gaugeColor = '#E74C3C';
+    } else if (currentScore < 650) {
+      standingText = 'Fair Standing';
+      standingColor = '#CC8600'; // Darker Orange
       standingBg = '#CC860020';
+      gaugeColor = '#CC8600';
     }
 
     const getActivityStyle = (title: string, amount: string) => {
@@ -337,14 +363,14 @@ export default function DashboardScreen() {
               <Path
                 d="M 10 80 A 70 70 0 0 1 150 80"
                 fill="none"
-                stroke="#D4820A"
+                stroke={gaugeColor}
                 strokeLinecap="round"
                 strokeWidth={12}
                 strokeDasharray={[220]}
                 strokeDashoffset={gaugeOffset}
               />
             </Svg>
-            <Text style={styles.gaugeScoreText}>{currentScore}</Text>
+            <Text style={styles.gaugeScoreText}>{isCalculating ? '...' : currentScore}</Text>
           </View>
 
           {/* Standing & Trend Badge */}
@@ -374,48 +400,6 @@ export default function DashboardScreen() {
           </View>
         </LinearGradient>
 
-        {/* Quick Actions Grid */}
-        <View style={styles.quickActionsGrid}>
-          <Pressable 
-            onPress={() => setLoanModalVisible(true)}
-            style={({ pressed }) => [styles.actionButtonContainer, { transform: [{ scale: pressed ? 0.95 : 1 }] }]}
-          >
-            <View style={styles.actionIconButton}>
-              <SymbolView tintColor="#d4820a" name="payments" size={28} />
-            </View>
-            <Text style={styles.actionButtonLabel}>Apply Loan</Text>
-          </Pressable>
-
-          <Pressable 
-            onPress={() => setReportModalVisible(true)}
-            style={({ pressed }) => [styles.actionButtonContainer, { transform: [{ scale: pressed ? 0.95 : 1 }] }]}
-          >
-            <View style={styles.actionIconButton}>
-              <SymbolView tintColor="#446274" name="analytics" size={28} />
-            </View>
-            <Text style={styles.actionButtonLabel}>View Report</Text>
-          </Pressable>
-
-          <Pressable 
-            onPress={() => setSupplierModalVisible(true)}
-            style={({ pressed }) => [styles.actionButtonContainer, { transform: [{ scale: pressed ? 0.95 : 1 }] }]}
-          >
-            <View style={styles.actionIconButton}>
-              <SymbolView tintColor="#cc8600" name="link" size={28} />
-            </View>
-            <Text style={styles.actionButtonLabel}>Link Supplier</Text>
-          </Pressable>
-
-          <Pressable 
-            onPress={() => setDocsModalVisible(true)}
-            style={({ pressed }) => [styles.actionButtonContainer, { transform: [{ scale: pressed ? 0.95 : 1 }] }]}
-          >
-            <View style={styles.actionIconButton}>
-              <SymbolView tintColor="#867463" name="folder_open" size={28} />
-            </View>
-            <Text style={styles.actionButtonLabel}>My Docs</Text>
-          </Pressable>
-        </View>
 
         {/* Pre-Approved Loan Banner */}
         <View style={styles.loanBanner}>
@@ -463,7 +447,7 @@ export default function DashboardScreen() {
         </View>
 
         {/* AI Insight Section */}
-        {trustScoreData?.score_explanation ? (
+        {activeTrustScoreData?.score_explanation ? (
           <View style={styles.insightBox}>
             <SparkleWatermark />
             <View style={styles.insightHeader}>
@@ -471,12 +455,8 @@ export default function DashboardScreen() {
               <Text style={styles.insightTitle}>TRUSTSCORE™ INSIGHT</Text>
             </View>
             <Text style={styles.insightText}>
-              {trustScoreData.score_explanation}
+              {activeTrustScoreData.score_explanation}
             </Text>
-            <View style={{ marginTop: 12, flexDirection: 'row', justifyContent: 'space-between' }}>
-              <Text style={{ fontSize: 12, color: '#895100', fontWeight: 'bold' }}>Default Probability: {trustScoreData.default_probability}</Text>
-              <Text style={{ fontSize: 12, color: '#895100', fontWeight: 'bold' }}>Loan Limit: {trustScoreData.recommended_loan_limit}</Text>
-            </View>
           </View>
         ) : (
           <View style={styles.insightBox}>
@@ -654,9 +634,15 @@ export default function DashboardScreen() {
               onChangeText={setSaleDesc}
             />
             
-            <Pressable style={styles.modalPrimaryBtn} onPress={handleRecordSale}>
-              <Text style={styles.modalPrimaryBtnText}>Save Entry</Text>
-            </Pressable>
+            <TouchableOpacity 
+              style={[styles.modalPrimaryBtn, isCalculating && { opacity: 0.7 }]} 
+              onPress={handleRecordSale}
+              disabled={isCalculating}
+            >
+              <Text style={styles.modalPrimaryBtnText}>
+                {isCalculating ? 'AI is calculating...' : 'Save Entry'}
+              </Text>
+            </TouchableOpacity>
           </View>
         </View>
       </Modal>
