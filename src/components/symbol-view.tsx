@@ -83,6 +83,16 @@ const ICON_MAPPING: Record<string, { set: 'Ionicons' | 'Feather' | 'FontAwesome'
   'auto_awesome': { set: 'Ionicons', name: 'sparkles-outline' },
   'home': { set: 'Ionicons', name: 'home-outline' },
   'receipt_long': { set: 'Ionicons', name: 'document-text-outline' },
+  'settings': { set: 'Ionicons', name: 'settings-outline' },
+  'search': { set: 'Ionicons', name: 'search-outline' },
+  'add': { set: 'Ionicons', name: 'add-outline' },
+  'pie_chart': { set: 'Ionicons', name: 'pie-chart-outline' },
+  'warning': { set: 'Ionicons', name: 'warning-outline' },
+  'verified_user': { set: 'Ionicons', name: 'checkmark-circle-outline' },
+  'filter_list': { set: 'Ionicons', name: 'funnel-outline' },
+  'home_app_logo': { set: 'Ionicons', name: 'home-outline' },
+  'calendar_today': { set: 'Ionicons', name: 'calendar-outline' },
+  'chat_bubble': { set: 'Ionicons', name: 'chatbubble-outline' },
 };
 
 export function SymbolView({

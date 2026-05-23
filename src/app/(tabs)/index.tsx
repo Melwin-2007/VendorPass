@@ -19,7 +19,7 @@ import { BottomTabInset, Spacing } from '@/constants/theme';
 import { SymbolView } from '@/components/symbol-view';
 import { router } from 'expo-router';
 import { supabase } from '@/lib/supabase';
-import Svg, { Circle, Path, Rect } from 'react-native-svg';
+import Svg, { Path } from 'react-native-svg';
 import { LinearGradient } from 'expo-linear-gradient';
 
 // Custom sparkles/stars SVGs to match the high-end mockup design
@@ -50,7 +50,7 @@ function SparkleWatermark() {
 }
 
 export default function DashboardScreen() {
-  const { user, signOut, updateRole } = useAuth();
+  const { user, signOut } = useAuth();
   const theme = useTheme();
   const safeAreaInsets = useSafeAreaInsets();
 
@@ -121,9 +121,28 @@ export default function DashboardScreen() {
 
   // Lender applicants queue state
   const [applicants, setApplicants] = useState([
-    { id: '101', name: 'Sunita Kirana Store', score: 764, amount: '₹15,000', rate: '12% p.a.', date: 'Today' },
-    { id: '102', name: 'Rajesh Tea Stall', score: 689, amount: '₹8,000', rate: '14% p.a.', date: 'Yesterday' },
-    { id: '103', name: 'Pooja Vegetable Cart', score: 615, amount: '₹5,000', rate: '15% p.a.', date: '2 days ago' },
+    {
+      id: '101',
+      name: 'Meera Sharma',
+      score: 842,
+      amount: '₹45,000',
+      rate: '12% p.a.',
+      date: 'Today',
+      risk: 'Low Risk',
+      note: 'Inventory for festival season sale',
+      image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuAlgj-SJy7IHHN72FxR0ksw9nM_XrQpT4CDw_-cf7XWWW3dGev-D7RrwT5t01Jjh9SC4mPC4V72WbitqBuxaang7oo5_1RNOweXOjkLpUEQiI6VM9qNtBGbdtINFD_1tCcctKfd3S9YQXPcSyZOGjFNvmYK-I3Z1kWnVfeBtMZZfSRlX9Ixyo_i322Hmo4RCrCVfMZUl6pIdFZAF7AUYxALh1sSDJykFkLtVia9Fehqnn39siVkTBQ_F8WeSDNBCMApg9u7YLxNIXlV'
+    },
+    {
+      id: '102',
+      name: 'Rajesh G.',
+      score: 710,
+      amount: '₹1,20,000',
+      rate: '14% p.a.',
+      date: 'Yesterday',
+      risk: 'Mid Risk',
+      note: 'Store expansion & renovation',
+      image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuDzzSuHOpEJn-7xe_AibaeP3BNgyVm1sqY9bXQ5vIYvcq-79NQCh2y_iFSBGk36s3oybmkVsCRLc51jEdrOBqHM5E55whcfLhJqMiK32jyP2wIkyr3jqZ0rDwBbjYxu6IeDiI81XyIwD1nrloftvPQ02rxFV0Qr-0eSMEUYcMaQmUXDwg7sQ-besw5_7gDFh78oFgPGVOUwjNNWBYEH5WYnqwJYKzRUP4bzbta3oOY7dwj7h_8YaJ5zTJA-xv3FC8rhF79eRsCcKXh3'
+    }
   ]);
 
   // Animate the gauge when currentScore changes
@@ -139,6 +158,56 @@ export default function DashboardScreen() {
     }, 150);
     return () => clearTimeout(timer);
   }, [currentScore]);
+
+  // Fetch dynamic vendor applicants from profiles database for Lender
+  useEffect(() => {
+    if (user?.role === 'LENDER') {
+      const fetchLenderData = async () => {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('role', 'VENDOR')
+          .order('created_at', { ascending: false });
+
+        if (error) {
+          console.error('Error fetching vendor profiles:', error);
+          return;
+        }
+
+        if (data && data.length > 0) {
+          const mappedApplicants = data.map((profile) => {
+            // Risk evaluation based on TrustScore
+            let risk = 'High Risk';
+            if (profile.score >= 750) risk = 'Low Risk';
+            else if (profile.score >= 650) risk = 'Mid Risk';
+
+            // Limit amount calculation based on their TrustScore
+            const rawScore = profile.score || 600;
+            const amountVal = rawScore >= 750 ? 45000 : rawScore >= 650 ? 120000 : 15000;
+            const rateVal = rawScore >= 750 ? '12% p.a.' : rawScore >= 650 ? '14% p.a.' : '15% p.a.';
+
+            // Selfie check with proper default fallback
+            const defaultSelfie = 'https://lh3.googleusercontent.com/aida-public/AB6AXuAlgj-SJy7IHHN72FxR0ksw9nM_XrQpT4CDw_-cf7XWWW3dGev-D7RrwT5t01Jjh9SC4mPC4V72WbitqBuxaang7oo5_1RNOweXOjkLpUEQiI6VM9qNtBGbdtINFD_1tCcctKfd3S9YQXPcSyZOGjFNvmYK-I3Z1kWnVfeBtMZZfSRlX9Ixyo_i322Hmo4RCrCVfMZUl6pIdFZAF7AUYxALh1sSDJykFkLtVia9Fehqnn39siVkTBQ_F8WeSDNBCMApg9u7YLxNIXlV';
+
+            return {
+              id: profile.id,
+              name: profile.name || 'Anonymous Vendor',
+              score: rawScore,
+              amount: `₹${amountVal.toLocaleString('en-IN')}`,
+              rate: rateVal,
+              date: new Date(profile.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }),
+              risk: risk,
+              note: profile.score >= 750 ? 'Inventory for festival season sale' : 'Store expansion & renovation',
+              image: profile.selfie || defaultSelfie,
+            };
+          });
+          setApplicants(mappedApplicants);
+        }
+      };
+
+      fetchLenderData();
+    }
+  }, [user?.role]);
 
   // Helper for showing a temporary toast notification
   const showToast = (message: string) => {
@@ -475,121 +544,407 @@ export default function DashboardScreen() {
     );
   };
 
-  const renderLenderDashboard = () => {
+  const renderLenderTopAppBar = () => {
     return (
-      <View style={styles.dashboardContainer}>
-        {/* Welcome Row */}
-        <View style={styles.welcomeRow}>
-          <View>
-            <Text style={[styles.welcomeGreeting, { color: theme.textSecondary }]}>Welcome,</Text>
-            <Text style={[styles.welcomeName, { color: theme.text }]}>Janata NBFC Partner</Text>
-          </View>
-          <Pressable style={styles.profileBadge}>
-            <View style={[styles.profileAvatar, { backgroundColor: theme.primary + '30' }]}>
-              <Text style={[styles.profileAvatarText, { color: theme.primary }]}>J</Text>
+      <View style={styles.lenderNavBar}>
+        <View style={styles.lenderNavLeft}>
+          <View style={styles.lenderNavAvatarContainer}>
+            <Image
+              alt="Suresh Profile"
+              style={styles.lenderNavAvatar}
+              source={{ uri: 'https://lh3.googleusercontent.com/aida-public/AB6AXuA3hLQjdNWbXnIL9iJKiflOBCYQepD67FLny_XMmVvlbMB1INZ9WOVcww8F1O4yV41f5Vj8zm04GtGfxxTE1mAjFWoqtdOF6RTJc0WyDnAWWqPm9jQUcIwNqUL-XnH0TN0cXlwmDsy3EMjKDqBMeYoY6oKSwui1Xnicj61EaQbPSo0gUOifnx5TIcDCQ0GlRoCPmOb67C5r0A6TOnL0GTv_KRoBnCSrvmnb41itPQhebSP-u9C4jgXRvLXXIVMlbFBDWfSqRcqRDSzI' }}
+            />
+            <View style={styles.lenderVerifiedBadge}>
+              <Text style={styles.lenderVerifiedText}>VERIFIED</Text>
             </View>
+          </View>
+          <View>
+            <Text style={styles.lenderWelcomeGreeting}>Welcome Back,</Text>
+            <Text style={styles.lenderWelcomeName}>{user?.name?.split(' ')[0] || 'Suresh'} 👋</Text>
+          </View>
+        </View>
+        <View style={styles.lenderNavRight}>
+          <Pressable 
+            onPress={() => showToast('ℹ️ Notification center opened.')}
+            style={styles.lenderNavIconBtn}
+          >
+            <SymbolView name="notifications" size={24} tintColor="#534435" />
+            <View style={styles.lenderNavBadge} />
+          </Pressable>
+          <Pressable 
+            onPress={() => showToast('ℹ️ Settings opened.')}
+            style={styles.lenderNavIconBtn}
+          >
+            <SymbolView name="settings" size={24} tintColor="#534435" />
           </Pressable>
         </View>
+      </View>
+    );
+  };
 
-        {/* Microfinance Stats */}
-        <View style={styles.statsRow}>
-          <View style={[styles.statBox, { backgroundColor: theme.card, borderColor: theme.border }]}>
-            <Text style={[styles.statLabel, { color: theme.textSecondary }]}>DISBURSED CAPITAL</Text>
-            <Text style={[styles.statValue, { color: theme.text }]}>₹14.8L</Text>
-          </View>
-          <View style={[styles.statBox, { backgroundColor: theme.card, borderColor: theme.border }]}>
-            <Text style={[styles.statLabel, { color: theme.textSecondary }]}>ACTIVE VENDORS</Text>
-            <Text style={[styles.statValue, { color: theme.text }]}>84</Text>
-          </View>
-        </View>
-
-        {/* Credit Applications Pipeline */}
-        <Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>CREDIT REQUESTS PIPELINE</Text>
-        {applicants.length > 0 ? (
-          <View style={styles.pipelineList}>
-            {applicants.map((item) => (
-              <View key={item.id} style={[styles.appCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
-                <View style={styles.appCardHeader}>
-                  <View>
-                    <Text style={[styles.appName, { color: theme.text }]}>{item.name}</Text>
-                    <Text style={[styles.appDate, { color: theme.textMuted }]}>{item.date}</Text>
-                  </View>
-                  <View style={[styles.scoreBadgeCircle, { backgroundColor: theme.primary + '15' }]}>
-                    <Text style={[styles.scoreBadgeTextCircle, { color: theme.primary }]}>{item.score}</Text>
-                  </View>
-                </View>
-
-                <View style={[styles.divider, { backgroundColor: theme.border }]} />
-
-                <View style={styles.appDetailsRow}>
-                  <View>
-                    <Text style={[styles.appDetailLabel, { color: theme.textMuted }]}>LIMIT AMOUNT</Text>
-                    <Text style={[styles.appDetailValue, { color: theme.text }]}>{item.amount}</Text>
-                  </View>
-                  <View>
-                    <Text style={[styles.appDetailLabel, { color: theme.textMuted }]}>PROPOSED RATE</Text>
-                    <Text style={[styles.appDetailValue, { color: theme.success }]}>{item.rate}</Text>
-                  </View>
-                </View>
-
-                <View style={styles.appActions}>
-                  <Pressable
-                    style={[styles.appButtonDecline, { borderColor: theme.error }]}
-                    onPress={() => handleApproveCredit(item.id)}>
-                    <Text style={[styles.appButtonDeclineText, { color: theme.error }]}>Decline</Text>
-                  </Pressable>
-                  <Pressable
-                    style={[styles.appButtonApprove, { backgroundColor: theme.primary }]}
-                    onPress={() => handleApproveCredit(item.id)}>
-                    <Text style={styles.appButtonApproveText}>Approve Limit</Text>
-                  </Pressable>
-                </View>
-              </View>
-            ))}
-          </View>
-        ) : (
-          <View style={[styles.emptyState, { backgroundColor: theme.card, borderColor: theme.border }]}>
-            <SymbolView tintColor={theme.textMuted} name="checkmark.circle" size={40} />
-            <Text style={[styles.emptyStateText, { color: theme.textSecondary }]}>All applications reviewed!</Text>
-          </View>
-        )}
-
-        {/* Global Sign Out Button for Lender only (since vendor has it in Account tab) */}
-        <Pressable
-          style={({ pressed }) => [
-            styles.signOutButton,
-            { borderColor: '#E8E0D5', opacity: pressed ? 0.8 : 1.0 },
-          ]}
-          onPress={signOut}>
-          <SymbolView tintColor="#C0392B" name="arrow.right.to.line" size={18} style={{ marginRight: 6 }} />
-          <Text style={[styles.signOutText, { color: '#C0392B' }]}>Sign Out Profile</Text>
+  const renderLenderBottomTabBar = () => {
+    return (
+      <View style={styles.lenderBottomBar}>
+        <Pressable 
+          onPress={() => showToast('ℹ️ Home is active.')}
+          style={[styles.lenderBottomBarItem, styles.lenderBottomBarItemActive]}
+        >
+          <SymbolView name="home_app_logo" size={22} tintColor="#895100" />
+          <Text style={styles.lenderBottomBarTextActive}>Home</Text>
+        </Pressable>
+        <Pressable 
+          onPress={() => showToast('ℹ️ Portfolio tracker.')}
+          style={styles.lenderBottomBarItem}
+        >
+          <SymbolView name="pie_chart" size={22} tintColor="#534435" />
+          <Text style={styles.lenderBottomBarText}>Portfolio</Text>
+        </Pressable>
+        <Pressable 
+          onPress={() => router.push('/(tabs)/explore')}
+          style={styles.lenderBottomBarItem}
+        >
+          <SymbolView name="search" size={22} tintColor="#534435" />
+          <Text style={styles.lenderBottomBarText}>Browse</Text>
+        </Pressable>
+        <Pressable 
+          onPress={() => showToast('ℹ️ Repayments schedule.')}
+          style={styles.lenderBottomBarItem}
+        >
+          <SymbolView name="calendar_today" size={22} tintColor="#534435" />
+          <Text style={styles.lenderBottomBarText}>Repayments</Text>
+        </Pressable>
+        <Pressable 
+          onPress={() => showToast('ℹ️ Support Chat.')}
+          style={styles.lenderBottomBarItem}
+        >
+          <SymbolView name="chat_bubble" size={22} tintColor="#534435" />
+          <Text style={styles.lenderBottomBarText}>Chat</Text>
         </Pressable>
       </View>
     );
   };
 
+  const renderLenderDashboard = () => {
+    return (
+      <View style={styles.lenderDashboardContainer}>
+        {/* Hero Portfolio Card */}
+        <LinearGradient
+          colors={['#1A3A4A', '#0F2430', '#0A1A24']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.lenderHeroCard}
+        >
+          <View style={styles.lenderHeroContent}>
+            <Text style={styles.lenderHeroLabel}>TOTAL CAPITAL DEPLOYED</Text>
+            <View style={styles.lenderHeroAmountRow}>
+              <Text style={styles.lenderHeroCurrency}>₹</Text>
+              <Text style={styles.lenderHeroValue}>4,85,000</Text>
+            </View>
+
+            <View style={styles.lenderHeroDivider} />
+
+            <View style={styles.lenderHeroStatsRow}>
+              <View style={styles.lenderHeroStatItem}>
+                <Text style={styles.lenderHeroStatLabel}>ACTIVE LOANS</Text>
+                <Text style={styles.lenderHeroStatValue}>12</Text>
+              </View>
+              <View style={styles.lenderHeroStatItem}>
+                <Text style={styles.lenderHeroStatLabel}>AVG RETURN</Text>
+                <Text style={[styles.lenderHeroStatValue, { color: '#ffb86b' }]}>18.4%</Text>
+              </View>
+              <View style={styles.lenderHeroStatItem}>
+                <Text style={styles.lenderHeroStatLabel}>REPAYMENT</Text>
+                <Text style={styles.lenderHeroStatValue}>94%</Text>
+              </View>
+            </View>
+
+            {/* Sparkline Visualizer */}
+            <View style={styles.sparklineContainer}>
+              <View style={[styles.sparklineBar, { height: '40%' }]} />
+              <View style={[styles.sparklineBar, { height: '60%' }]} />
+              <View style={[styles.sparklineBar, { height: '80%' }]} />
+              <View style={[styles.sparklineBar, { height: '50%' }]} />
+              <View style={[styles.sparklineBar, { height: '90%' }]} />
+              <View style={[styles.sparklineBar, { height: '70%' }]} />
+              <View style={[styles.sparklineBar, { height: '100%', backgroundColor: '#ffb86b' }]} />
+            </View>
+          </View>
+        </LinearGradient>
+
+        {/* Quick Actions Row */}
+        <View style={styles.lenderQuickActions}>
+          <Pressable 
+            onPress={() => router.push('/(tabs)/explore')}
+            style={styles.lenderActionBtn}
+          >
+            <View style={styles.lenderActionIconBg}>
+              <SymbolView name="search" size={24} tintColor="#895100" />
+            </View>
+            <Text style={styles.lenderActionText}>Browse Vendors</Text>
+          </Pressable>
+
+          <Pressable 
+            onPress={() => showToast('ℹ️ Apply for new loan limit.')}
+            style={styles.lenderActionBtn}
+          >
+            <View style={[styles.lenderActionIconBg, { backgroundColor: '#d4820a' }]}>
+              <SymbolView name="add" size={24} tintColor="#ffffff" />
+            </View>
+            <Text style={[styles.lenderActionText, { color: '#895100', fontWeight: 'bold' }]}>New Loan</Text>
+          </Pressable>
+
+          <Pressable 
+            onPress={() => showToast('ℹ️ Portfolio tracker.')}
+            style={styles.lenderActionBtn}
+          >
+            <View style={styles.lenderActionIconBg}>
+              <SymbolView name="pie_chart" size={24} tintColor="#534435" />
+            </View>
+            <Text style={styles.lenderActionText}>Portfolio</Text>
+          </Pressable>
+
+          <Pressable 
+            onPress={() => showToast('ℹ️ At-Risk loans audit.')}
+            style={styles.lenderActionBtn}
+          >
+            <View style={[styles.lenderActionIconBg, { backgroundColor: 'rgba(192, 57, 43, 0.1)' }]}>
+              <SymbolView name="warning" size={24} tintColor="#C0392B" />
+            </View>
+            <Text style={[styles.lenderActionText, { color: '#C0392B' }]}>At-Risk</Text>
+          </Pressable>
+        </View>
+
+        {/* Pending Approvals Section */}
+        <View style={styles.lenderSectionContainer}>
+          <View style={styles.lenderSectionHeader}>
+            <View style={styles.lenderSectionTitleRow}>
+              <Text style={styles.lenderSectionTitle}>Awaiting Your Decision</Text>
+              <View style={styles.lenderBadge}>
+                <Text style={styles.lenderBadgeText}>{applicants.length}</Text>
+              </View>
+            </View>
+            <Pressable onPress={() => showToast('Viewing all pending applications.')}>
+              <Text style={styles.lenderViewAll}>VIEW ALL</Text>
+            </Pressable>
+          </View>
+
+          {/* Swipeable cards list */}
+          {applicants.length > 0 ? (
+            <ScrollView 
+              horizontal 
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.lenderCardsScroll}
+            >
+              {applicants.map((item) => (
+                <View key={item.id} style={styles.lenderCard}>
+                  <View style={styles.lenderCardTop}>
+                    <View style={styles.lenderCardUser}>
+                      <Image
+                        style={styles.lenderCardAvatar}
+                        source={{ uri: item.image }}
+                      />
+                      <View>
+                        <Text style={styles.lenderCardName}>{item.name}</Text>
+                        <View style={styles.lenderCardTrustRow}>
+                          <SymbolView name="verified_user" size={12} tintColor="#2D7D46" />
+                          <Text style={styles.lenderCardTrustText}>TrustScore {item.score}</Text>
+                        </View>
+                      </View>
+                    </View>
+                    <View style={[
+                      styles.lenderRiskBadge,
+                      item.risk === 'Low Risk' ? styles.lenderRiskLow : styles.lenderRiskMid
+                    ]}>
+                      <Text style={[
+                        styles.lenderRiskText,
+                        item.risk === 'Low Risk' ? { color: '#2D7D46' } : { color: '#835500' }
+                      ]}>{item.risk}</Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.lenderCardDetails}>
+                    <Text style={styles.lenderCardDetailsLabel}>REQUESTING</Text>
+                    <Text style={styles.lenderCardDetailsAmount}>{item.amount}</Text>
+                    <Text style={styles.lenderCardDetailsNote}>&quot;{item.note}&quot;</Text>
+                  </View>
+
+                  <View style={styles.lenderCardActions}>
+                    <Pressable 
+                      onPress={() => handleApproveCredit(item.id)}
+                      style={styles.lenderDeclineBtn}
+                    >
+                      <Text style={styles.lenderDeclineBtnText}>DECLINE</Text>
+                    </Pressable>
+                    <Pressable 
+                      onPress={() => handleApproveCredit(item.id)}
+                      style={styles.lenderApproveBtn}
+                    >
+                      <Text style={styles.lenderApproveBtnText}>APPROVE</Text>
+                    </Pressable>
+                  </View>
+                </View>
+              ))}
+            </ScrollView>
+          ) : (
+            <View style={styles.lenderEmptyCard}>
+              <SymbolView name="checkmark.circle" size={40} tintColor="#6B6B6B" />
+              <Text style={styles.lenderEmptyText}>All applications reviewed!</Text>
+            </View>
+          )}
+        </View>
+
+        {/* Active Loans Feed */}
+        <View style={styles.lenderSectionContainer}>
+          <View style={styles.lenderSectionHeader}>
+            <Text style={styles.lenderSectionTitle}>Active Loans Feed</Text>
+            <SymbolView name="filter_list" size={20} tintColor="#534435" />
+          </View>
+
+          <View style={styles.lenderActiveFeed}>
+            {/* Loan Row 1 */}
+            <View style={styles.lenderActiveCard}>
+              <View style={styles.lenderActiveCardTop}>
+                <View style={styles.lenderActiveIconRow}>
+                  <View style={styles.lenderActiveIconBg}>
+                    <SymbolView name="storefront" size={20} tintColor="#446274" />
+                  </View>
+                  <View>
+                    <Text style={styles.lenderActiveName}>Krishna General Store</Text>
+                    <Text style={styles.lenderActiveDue}>EMI Due: Oct 12 • ₹4,200</Text>
+                  </View>
+                </View>
+                <View style={styles.lenderActiveRight}>
+                  <Text style={styles.lenderActiveAmount}>₹42,000</Text>
+                  <View style={styles.lenderActiveBadgeGreen}>
+                    <Text style={styles.lenderActiveBadgeTextGreen}>ON TRACK</Text>
+                  </View>
+                </View>
+              </View>
+              <View style={styles.lenderProgressContainer}>
+                <View style={styles.lenderProgressLabelRow}>
+                  <Text style={styles.lenderProgressLabel}>8 / 12 INSTALLMENTS</Text>
+                  <Text style={styles.lenderProgressLabel}>65% PAID</Text>
+                </View>
+                <View style={styles.lenderProgressBarBg}>
+                  <View style={[styles.lenderProgressBarFill, { width: '65%', backgroundColor: '#2D7D46' }]} />
+                </View>
+              </View>
+            </View>
+
+            {/* Loan Row 2 */}
+            <View style={styles.lenderActiveCard}>
+              <View style={styles.lenderActiveCardTop}>
+                <View style={styles.lenderActiveIconRow}>
+                  <View style={styles.lenderActiveIconBg}>
+                    <SymbolView name="local_shipping" size={20} tintColor="#446274" />
+                  </View>
+                  <View>
+                    <Text style={styles.lenderActiveName}>S.K. Logistics</Text>
+                    <Text style={styles.lenderActiveDue}>EMI Due: Oct 15 • ₹12,500</Text>
+                  </View>
+                </View>
+                <View style={styles.lenderActiveRight}>
+                  <Text style={styles.lenderActiveAmount}>₹2,50,000</Text>
+                  <View style={styles.lenderActiveBadgeOrange}>
+                    <Text style={styles.lenderActiveBadgeTextOrange}>UPCOMING</Text>
+                  </View>
+                </View>
+              </View>
+              <View style={styles.lenderProgressContainer}>
+                <View style={styles.lenderProgressLabelRow}>
+                  <Text style={styles.lenderProgressLabel}>2 / 24 INSTALLMENTS</Text>
+                  <Text style={styles.lenderProgressLabel}>8% PAID</Text>
+                </View>
+                <View style={styles.lenderProgressBarBg}>
+                  <View style={[styles.lenderProgressBarFill, { width: '8%', backgroundColor: '#895100' }]} />
+                </View>
+              </View>
+            </View>
+
+            {/* Loan Row 3 */}
+            <View style={[styles.lenderActiveCard, { borderLeftWidth: 4, borderLeftColor: '#C0392B' }]}>
+              <View style={styles.lenderActiveCardTop}>
+                <View style={styles.lenderActiveIconRow}>
+                  <View style={[styles.lenderActiveIconBg, { backgroundColor: 'rgba(192, 57, 43, 0.1)' }]}>
+                    <SymbolView name="warning" size={20} tintColor="#C0392B" />
+                  </View>
+                  <View>
+                    <Text style={styles.lenderActiveName}>Anita Boutique</Text>
+                    <Text style={[styles.lenderActiveDue, { color: '#C0392B' }]}>Overdue by 3 Days • ₹2,100</Text>
+                  </View>
+                </View>
+                <View style={styles.lenderActiveRight}>
+                  <Text style={styles.lenderActiveAmount}>₹15,000</Text>
+                  <View style={styles.lenderActiveBadgeRed}>
+                    <Text style={styles.lenderActiveBadgeTextRed}>AT RISK</Text>
+                  </View>
+                </View>
+              </View>
+              <View style={styles.lenderProgressContainer}>
+                <View style={styles.lenderProgressLabelRow}>
+                  <Text style={styles.lenderProgressLabel}>10 / 12 INSTALLMENTS</Text>
+                  <Text style={styles.lenderProgressLabel}>83% PAID</Text>
+                </View>
+                <View style={styles.lenderProgressBarBg}>
+                  <View style={[styles.lenderProgressBarFill, { width: '83%', backgroundColor: '#C0392B' }]} />
+                </View>
+              </View>
+            </View>
+          </View>
+        </View>
+
+        {/* Global Sign Out Button for Lender only */}
+        <Pressable
+          style={({ pressed }) => [
+            styles.lenderSignOutBtn,
+            { opacity: pressed ? 0.8 : 1.0 },
+          ]}
+          onPress={signOut}>
+          <SymbolView tintColor="#C0392B" name="arrow.right.to.line" size={18} style={{ marginRight: 6 }} />
+          <Text style={styles.lenderSignOutText}>Sign Out Lender Profile</Text>
+        </Pressable>
+      </View>
+    );
+  };
+
+  const isLender = user?.role === 'LENDER';
+
   return (
-    <View style={[styles.container, { backgroundColor: '#F9F5EF' }]}>
+    <View style={[styles.container, { backgroundColor: isLender ? '#fdf9f3' : '#F9F5EF' }]}>
       {toastMessage && (
         <View style={styles.toastContainer}>
           <Text style={styles.toastText}>{toastMessage}</Text>
         </View>
       )}
+
+      {isLender && renderLenderTopAppBar()}
+
       <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={[styles.contentContainer, contentPlatformStyle]}>
+        style={[
+          styles.scrollView,
+          isLender && { marginTop: 64, marginBottom: 80 }
+        ]}
+        contentContainerStyle={[
+          styles.contentContainer,
+          contentPlatformStyle,
+          isLender && { paddingTop: 16, paddingBottom: 32 }
+        ]}>
         
-        {user?.role === 'LENDER' ? renderLenderDashboard() : renderVendorDashboard()}
+        {isLender ? renderLenderDashboard() : renderVendorDashboard()}
 
       </ScrollView>
 
-      <BottomTabBar 
-        activeTab="home"
-        userRole={user?.role}
-        onCenterPress={() => setLedgerModalVisible(true)}
-        onHistoryPress={() => setNotificationsModalVisible(true)}
-        onAccountPress={() => setAccountModalVisible(true)}
-      />
+      {isLender ? (
+        renderLenderBottomTabBar()
+      ) : (
+        <BottomTabBar 
+          activeTab="home"
+          userRole={user?.role}
+          onCenterPress={() => setLedgerModalVisible(true)}
+          onHistoryPress={() => setNotificationsModalVisible(true)}
+          onAccountPress={() => setAccountModalVisible(true)}
+        />
+      )}
 
       {/* -------------------- MODALS -------------------- */}
 
@@ -2108,5 +2463,582 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 14,
     fontWeight: '700',
+  },
+
+  // -------------------- LENDER OVERHAUL STYLES --------------------
+  lenderNavBar: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 64,
+    backgroundColor: '#fdf9f3',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E8E0D5',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+    zIndex: 100,
+  },
+  lenderNavLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  lenderNavAvatarContainer: {
+    position: 'relative',
+    width: 40,
+    height: 40,
+  },
+  lenderNavAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 2,
+    borderColor: '#895100',
+  },
+  lenderVerifiedBadge: {
+    position: 'absolute',
+    bottom: -4,
+    right: -4,
+    backgroundColor: '#2D7D46',
+    borderRadius: 4,
+    paddingHorizontal: 4,
+    paddingVertical: 1,
+    borderWidth: 1,
+    borderColor: '#ffffff',
+  },
+  lenderVerifiedText: {
+    color: '#ffffff',
+    fontSize: 6,
+    fontWeight: 'bold',
+    letterSpacing: 0.5,
+  },
+  lenderWelcomeGreeting: {
+    fontSize: 10,
+    color: '#6B6B6B',
+    textTransform: 'uppercase',
+    letterSpacing: 1.0,
+    fontWeight: '600',
+    fontFamily: Platform.OS === 'web' ? 'Sora' : 'sans-serif',
+  },
+  lenderWelcomeName: {
+    fontSize: 16,
+    color: '#895100',
+    fontWeight: '700',
+    fontFamily: Platform.OS === 'web' ? 'Sora' : 'sans-serif',
+  },
+  lenderNavRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+  },
+  lenderNavIconBtn: {
+    position: 'relative',
+  },
+  lenderNavBadge: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#C0392B',
+    borderWidth: 1,
+    borderColor: '#ffffff',
+  },
+  lenderBottomBar: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 80,
+    backgroundColor: '#fdf9f3',
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#E8E0D5',
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'center',
+    paddingBottom: 16,
+    paddingTop: 8,
+    zIndex: 100,
+    ...Platform.select({
+      web: {
+        position: 'fixed' as any,
+        maxWidth: 600,
+        alignSelf: 'center',
+        left: '50%' as any,
+        transform: 'translateX(-50%)' as any,
+        boxShadow: '0 -4px 12px rgba(0,0,0,0.06)',
+      }
+    }) as any,
+  },
+  lenderBottomBarItem: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    opacity: 0.6,
+  },
+  lenderBottomBarItemActive: {
+    opacity: 1.0,
+  },
+  lenderBottomBarText: {
+    fontSize: 10,
+    color: '#534435',
+    marginTop: 4,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    fontFamily: Platform.OS === 'web' ? 'Sora' : 'sans-serif',
+  },
+  lenderBottomBarTextActive: {
+    fontSize: 10,
+    color: '#895100',
+    marginTop: 4,
+    fontWeight: 'bold',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    fontFamily: Platform.OS === 'web' ? 'Sora' : 'sans-serif',
+  },
+  lenderDashboardContainer: {
+    flex: 1,
+    gap: 24,
+  },
+  lenderHeroCard: {
+    borderRadius: 24,
+    padding: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.15,
+    shadowRadius: 16,
+    elevation: 8,
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  lenderHeroContent: {
+    zIndex: 10,
+  },
+  lenderHeroLabel: {
+    fontSize: 11,
+    color: 'rgba(255, 255, 255, 0.7)',
+    letterSpacing: 2.0,
+    fontWeight: '600',
+    fontFamily: Platform.OS === 'web' ? 'Sora' : 'sans-serif',
+  },
+  lenderHeroAmountRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 8,
+    marginTop: 8,
+  },
+  lenderHeroCurrency: {
+    fontSize: 24,
+    color: '#ffffff',
+    fontWeight: '500',
+    fontFamily: Platform.OS === 'web' ? 'Playfair Display' : 'serif',
+  },
+  lenderHeroValue: {
+    fontSize: 36,
+    color: '#ffffff',
+    fontWeight: '700',
+    fontFamily: Platform.OS === 'web' ? 'JetBrains Mono' : 'monospace',
+    letterSpacing: -1,
+  },
+  lenderHeroDivider: {
+    height: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    marginVertical: 16,
+  },
+  lenderHeroStatsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  lenderHeroStatItem: {
+    gap: 4,
+  },
+  lenderHeroStatLabel: {
+    fontSize: 10,
+    color: 'rgba(255, 255, 255, 0.5)',
+    fontWeight: '600',
+    letterSpacing: 1.0,
+    fontFamily: Platform.OS === 'web' ? 'Sora' : 'sans-serif',
+  },
+  lenderHeroStatValue: {
+    fontSize: 18,
+    color: '#ffffff',
+    fontWeight: 'bold',
+    fontFamily: Platform.OS === 'web' ? 'Sora' : 'sans-serif',
+  },
+  sparklineContainer: {
+    height: 48,
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+    opacity: 0.4,
+    marginTop: 16,
+    gap: 4,
+  },
+  sparklineBar: {
+    flex: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+    borderTopLeftRadius: 2,
+    borderTopRightRadius: 2,
+  },
+  lenderQuickActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  lenderActionBtn: {
+    flex: 1,
+    alignItems: 'center',
+    gap: 8,
+  },
+  lenderActionIconBg: {
+    width: 56,
+    height: 56,
+    borderRadius: 16,
+    backgroundColor: '#e6e2dc',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  lenderActionText: {
+    fontSize: 10,
+    color: '#534435',
+    fontWeight: '600',
+    textAlign: 'center',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    fontFamily: Platform.OS === 'web' ? 'Sora' : 'sans-serif',
+  },
+  lenderSectionContainer: {
+    gap: 16,
+  },
+  lenderSectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  lenderSectionTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  lenderSectionTitle: {
+    fontSize: 16,
+    color: '#1c1c18',
+    fontWeight: '700',
+    fontFamily: Platform.OS === 'web' ? 'Sora' : 'sans-serif',
+  },
+  lenderBadge: {
+    backgroundColor: '#ffdcbc',
+    borderRadius: 9999,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+  },
+  lenderBadgeText: {
+    color: '#2c1700',
+    fontSize: 10,
+    fontWeight: 'bold',
+  },
+  lenderViewAll: {
+    color: '#895100',
+    fontSize: 11,
+    fontWeight: 'bold',
+    letterSpacing: 1.0,
+    fontFamily: Platform.OS === 'web' ? 'Sora' : 'sans-serif',
+  },
+  lenderCardsScroll: {
+    gap: 16,
+    paddingBottom: 8,
+  },
+  lenderCard: {
+    width: 280,
+    backgroundColor: '#ffffff',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#E8E0D5',
+    padding: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.03,
+    shadowRadius: 8,
+    elevation: 2,
+    gap: 16,
+  },
+  lenderCardTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+  },
+  lenderCardUser: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  lenderCardAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+  },
+  lenderCardName: {
+    fontSize: 14,
+    color: '#1c1c18',
+    fontWeight: '700',
+    fontFamily: Platform.OS === 'web' ? 'Sora' : 'sans-serif',
+  },
+  lenderCardTrustRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 2,
+  },
+  lenderCardTrustText: {
+    color: '#2D7D46',
+    fontSize: 10,
+    fontWeight: 'bold',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    fontFamily: Platform.OS === 'web' ? 'Sora' : 'sans-serif',
+  },
+  lenderRiskBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  lenderRiskLow: {
+    backgroundColor: '#E8F6F3',
+    borderColor: '#2D7D4630',
+  },
+  lenderRiskMid: {
+    backgroundColor: '#ffddb430',
+    borderColor: '#ffddb4',
+  },
+  lenderRiskText: {
+    fontSize: 10,
+    fontWeight: 'bold',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    fontFamily: Platform.OS === 'web' ? 'Sora' : 'sans-serif',
+  },
+  lenderCardDetails: {
+    gap: 4,
+  },
+  lenderCardDetailsLabel: {
+    fontSize: 10,
+    color: '#6B6B6B',
+    fontWeight: 'bold',
+    letterSpacing: 1.0,
+    fontFamily: Platform.OS === 'web' ? 'Sora' : 'sans-serif',
+  },
+  lenderCardDetailsAmount: {
+    fontSize: 24,
+    color: '#895100',
+    fontWeight: '700',
+    fontFamily: Platform.OS === 'web' ? 'JetBrains Mono' : 'monospace',
+  },
+  lenderCardDetailsNote: {
+    fontSize: 11,
+    color: '#534435',
+    fontStyle: 'italic',
+    marginTop: 2,
+    fontFamily: Platform.OS === 'web' ? 'DM Sans' : 'sans-serif',
+  },
+  lenderCardActions: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  lenderDeclineBtn: {
+    flex: 1,
+    height: 38,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: '#E8E0D5',
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#ffffff',
+  },
+  lenderDeclineBtnText: {
+    fontSize: 11,
+    color: '#534435',
+    fontWeight: 'bold',
+    letterSpacing: 1.0,
+    fontFamily: Platform.OS === 'web' ? 'Sora' : 'sans-serif',
+  },
+  lenderApproveBtn: {
+    flex: 1.5,
+    height: 38,
+    borderRadius: 12,
+    backgroundColor: '#895100',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#895100',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    elevation: 3,
+  },
+  lenderApproveBtnText: {
+    fontSize: 11,
+    color: '#ffffff',
+    fontWeight: 'bold',
+    letterSpacing: 1.0,
+    fontFamily: Platform.OS === 'web' ? 'Sora' : 'sans-serif',
+  },
+  lenderEmptyCard: {
+    borderWidth: 1.5,
+    borderColor: '#E8E0D5',
+    borderRadius: 20,
+    padding: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+    backgroundColor: '#ffffff',
+  },
+  lenderEmptyText: {
+    fontSize: 14,
+    color: '#6B6B6B',
+    fontFamily: Platform.OS === 'web' ? 'DM Sans' : 'sans-serif',
+  },
+  lenderActiveFeed: {
+    gap: 12,
+  },
+  lenderActiveCard: {
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: '#E8E0D5',
+    borderRadius: 16,
+    padding: 16,
+    gap: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.02,
+    shadowRadius: 4,
+    elevation: 1,
+  },
+  lenderActiveCardTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+  },
+  lenderActiveIconRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  lenderActiveIconBg: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#e6e2dc',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  lenderActiveName: {
+    fontSize: 14,
+    color: '#1c1c18',
+    fontWeight: '700',
+    fontFamily: Platform.OS === 'web' ? 'Sora' : 'sans-serif',
+  },
+  lenderActiveDue: {
+    fontSize: 11,
+    color: '#6B6B6B',
+    marginTop: 2,
+    fontFamily: Platform.OS === 'web' ? 'DM Sans' : 'sans-serif',
+  },
+  lenderActiveRight: {
+    alignItems: 'flex-end',
+    gap: 4,
+  },
+  lenderActiveAmount: {
+    fontSize: 14,
+    color: '#1c1c18',
+    fontWeight: '700',
+    fontFamily: Platform.OS === 'web' ? 'JetBrains Mono' : 'monospace',
+  },
+  lenderActiveBadgeGreen: {
+    backgroundColor: '#2D7D4615',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  lenderActiveBadgeTextGreen: {
+    color: '#2D7D46',
+    fontSize: 8,
+    fontWeight: 'bold',
+    letterSpacing: 0.5,
+  },
+  lenderActiveBadgeOrange: {
+    backgroundColor: '#89510015',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  lenderActiveBadgeTextOrange: {
+    color: '#895100',
+    fontSize: 8,
+    fontWeight: 'bold',
+    letterSpacing: 0.5,
+  },
+  lenderActiveBadgeRed: {
+    backgroundColor: '#C0392B15',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  lenderActiveBadgeTextRed: {
+    color: '#C0392B',
+    fontSize: 8,
+    fontWeight: 'bold',
+    letterSpacing: 0.5,
+  },
+  lenderProgressContainer: {
+    gap: 6,
+  },
+  lenderProgressLabelRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  lenderProgressLabel: {
+    fontSize: 9,
+    color: '#6B6B6B',
+    fontWeight: 'bold',
+    letterSpacing: 0.5,
+    fontFamily: Platform.OS === 'web' ? 'Sora' : 'sans-serif',
+  },
+  lenderProgressBarBg: {
+    height: 6,
+    backgroundColor: '#f1ede7',
+    borderRadius: 9999,
+    overflow: 'hidden',
+  },
+  lenderProgressBarFill: {
+    height: '100%',
+    borderRadius: 9999,
+  },
+  lenderSignOutBtn: {
+    flexDirection: 'row',
+    height: 48,
+    borderWidth: 1.5,
+    borderColor: '#E8E0D5',
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 16,
+    marginBottom: 32,
+  },
+  lenderSignOutText: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#C0392B',
+    fontFamily: Platform.OS === 'web' ? 'Sora' : 'sans-serif',
   },
 });
