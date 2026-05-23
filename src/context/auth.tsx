@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase';
 export type UserRole = 'VENDOR' | 'LENDER' | 'BANK';
 
 export interface UserProfile {
+  id: string;
   name: string;
   username: string;
   email: string;
@@ -13,6 +14,7 @@ export interface UserProfile {
   selfie: string | null;
   businessPhoto: string | null;
   score: number;
+  trustScoreData?: any;
 }
 
 interface AuthContextType {
@@ -44,49 +46,76 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Supabase auth state listener
   useEffect(() => {
+    let profileSubscription: any = null;
+    let isMounted = true;
+
+    const fetchAndSubscribeProfile = async (userId: string, metadata: any) => {
+      // Initial fetch
+      const { data: profileData } = await supabase
+        .from('profiles')
+        .select('trust_score_data')
+        .eq('id', userId)
+        .single();
+
+      if (!isMounted) return;
+
+      setUser(prev => ({
+        id: userId,
+        name: metadata?.name || 'User',
+        username: metadata?.username || 'user',
+        email: metadata?.email || '',
+        phone: metadata?.phone || '',
+        role: (metadata?.role as UserRole) || 'VENDOR',
+        selfie: metadata?.selfie || null,
+        businessPhoto: metadata?.businessPhoto || null,
+        score: metadata?.score || (metadata?.role === 'VENDOR' ? 620 : 0),
+        trustScoreData: profileData?.trust_score_data,
+      }));
+      setLoading(false);
+
+      // Subscribe to profile changes (e.g. edge function updating trust score)
+      const channelName = `profile_updates_${userId}_${Date.now()}`;
+      profileSubscription = supabase.channel(channelName)
+        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'profiles', filter: `id=eq.${userId}` }, (payload) => {
+          if (payload.new && payload.new.trust_score_data) {
+            setUser(current => current ? { ...current, trustScoreData: payload.new.trust_score_data } : null);
+          }
+        })
+        .subscribe();
+    };
+
     // Get active session on mount
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user) {
-        const metadata = session.user.user_metadata;
-        setUser({
-          name: metadata?.name || session.user.email?.split('@')[0] || 'User',
-          username: metadata?.username || 'user',
-          email: session.user.email || '',
-          phone: metadata?.phone || '',
-          role: (metadata?.role as UserRole) || 'VENDOR',
-          selfie: metadata?.selfie || null,
-          businessPhoto: metadata?.businessPhoto || null,
-          score: metadata?.score || (metadata?.role === 'VENDOR' ? 620 : 0),
-        });
+        const metadata = { ...session.user.user_metadata, email: session.user.email };
+        fetchAndSubscribeProfile(session.user.id, metadata);
       } else {
         setUser(null);
+        setLoading(false);
       }
-      setLoading(false);
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         if (session?.user) {
-          const metadata = session.user.user_metadata;
-          setUser({
-            name: metadata?.name || session.user.email?.split('@')[0] || 'User',
-            username: metadata?.username || 'user',
-            email: session.user.email || '',
-            phone: metadata?.phone || '',
-            role: (metadata?.role as UserRole) || 'VENDOR',
-            selfie: metadata?.selfie || null,
-            businessPhoto: metadata?.businessPhoto || null,
-            score: metadata?.score || (metadata?.role === 'VENDOR' ? 620 : 0),
-          });
+          const metadata = { ...session.user.user_metadata, email: session.user.email };
+          fetchAndSubscribeProfile(session.user.id, metadata);
         } else {
           setUser(null);
+          setLoading(false);
+          if (profileSubscription) {
+            supabase.removeChannel(profileSubscription);
+          }
         }
-        setLoading(false);
       }
     );
 
     return () => {
+      isMounted = false;
       subscription.unsubscribe();
+      if (profileSubscription) {
+        supabase.removeChannel(profileSubscription);
+      }
     };
   }, []);
 

@@ -97,3 +97,64 @@ for select
 to public
 using (bucket_id = 'documents');
 
+-- 9. Create Wallet Transactions Table
+create table public.wallet_transactions (
+  id uuid default gen_random_uuid() primary key,
+  user_id uuid references public.profiles(id) on delete cascade not null,
+  amount numeric not null,
+  type text check (type in ('ADD', 'SEND')) not null,
+  description text,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+-- Expose to data API
+grant all on table public.wallet_transactions to anon, authenticated;
+
+-- Row Level Security
+alter table public.wallet_transactions enable row level security;
+
+create policy "Allow users to read their own wallet transactions"
+on public.wallet_transactions for select to authenticated
+using ((select auth.uid()) = user_id);
+
+create policy "Allow users to insert their own wallet transactions"
+on public.wallet_transactions for insert to authenticated
+with check ((select auth.uid()) = user_id);
+
+-- 10. Add trust_score_data to profiles
+alter table public.profiles add column if not exists trust_score_data jsonb;
+
+-- 11. Create Webhook for TrustScore Engine
+-- This trigger will call the edge function whenever a new transaction is recorded
+create or replace function public.invoke_trust_score_calculation()
+returns trigger
+language plpgsql
+security definer
+as $$
+declare
+  endpoint_url text := current_setting('app.settings.edge_function_url', true);
+  auth_key text := current_setting('app.settings.edge_function_key', true);
+begin
+  -- For local testing or if the variable isn't set, we might need a fallback or just skip
+  -- In production, the URL and Key must be set in the database parameters
+  if endpoint_url is null then
+    return new;
+  end if;
+
+  perform net.http_post(
+    url := endpoint_url || '/calculate_trust_score',
+    headers := jsonb_build_object(
+      'Content-Type', 'application/json',
+      'Authorization', 'Bearer ' || auth_key
+    ),
+    body := jsonb_build_object('record', row_to_json(new))
+  );
+  return new;
+end;
+$$;
+
+drop trigger if exists on_wallet_transaction on public.wallet_transactions;
+create trigger on_wallet_transaction
+  after insert on public.wallet_transactions
+  for each row execute procedure public.invoke_trust_score_calculation();
+

@@ -10,12 +10,14 @@ import {
   TextInput,
   Image,
 } from 'react-native';
+import { BottomTabBar } from '@/components/BottomTabBar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '@/context/auth';
 import { useTheme } from '@/hooks/use-theme';
 import { BottomTabInset, Spacing } from '@/constants/theme';
 import { SymbolView } from '@/components/symbol-view';
 import { router } from 'expo-router';
+import { supabase } from '@/lib/supabase';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import { LinearGradient } from 'expo-linear-gradient';
 
@@ -82,7 +84,6 @@ export default function DashboardScreen() {
   const [docsModalVisible, setDocsModalVisible] = useState(false);
   const [reportModalVisible, setReportModalVisible] = useState(false);
   const [notificationsModalVisible, setNotificationsModalVisible] = useState(false);
-  const [walletModalVisible, setWalletModalVisible] = useState(false);
   const [accountModalVisible, setAccountModalVisible] = useState(false);
 
   // Modal input states
@@ -138,10 +139,44 @@ export default function DashboardScreen() {
     }, 3500);
   };
 
-  const handleRecordSale = () => {
+  const handleRecordSale = async () => {
     if (!saleAmount) return;
     const numericAmt = parseFloat(saleAmount.replace(/,/g, ''));
     if (isNaN(numericAmt)) return;
+
+    if (!user?.id) {
+      showToast('❌ User ID missing. Please refresh the app or log in again.');
+      console.warn("Attempted to record sale but user.id is missing:", user);
+      return;
+    }
+
+    // Actually insert into Supabase
+    const { error: insertError } = await supabase.from('wallet_transactions').insert([{
+      user_id: user.id,
+      amount: numericAmt,
+      type: 'ADD',
+      description: saleDesc || 'Store Sale: UPI'
+    }]);
+
+    if (insertError) {
+      showToast('❌ Failed to record sale. Check connection.');
+      console.error("Sale insert error", insertError);
+      return;
+    }
+
+    console.log("Successfully inserted transaction. Explicitly calling TrustScore engine...");
+
+    // Directly trigger the edge function so we don't have to rely on the Database Webhook
+    const { data: edgeData, error: edgeError } = await supabase.functions.invoke('calculate_trust_score', {
+      body: { record: { user_id: user.id } }
+    });
+
+    if (edgeError) {
+      console.error("Edge Function Error:", edgeError);
+      showToast('⚠️ Sale recorded, but TrustScore engine failed to run.');
+    } else {
+      console.log("Edge Function Response:", edgeData);
+    }
 
     const newActivity = {
       id: Date.now().toString(),
@@ -217,17 +252,18 @@ export default function DashboardScreen() {
   };
 
   const renderVendorDashboard = () => {
-    const currentScore = user?.score ?? 742;
+    const trustScoreData = user?.trustScoreData;
+    const currentScore = trustScoreData?.trust_score ?? user?.score ?? 742;
 
     // Standing calculations
-    let standingText = 'Good Standing';
+    let standingText = trustScoreData?.risk_tier ? `${trustScoreData.risk_tier} Standing` : 'Good Standing';
     let standingColor = '#2D7D46'; 
     let standingBg = '#2D7D4620';
-    if (currentScore >= 780) {
-      standingText = 'Excellent Standing';
+    if (currentScore >= 750 || trustScoreData?.risk_tier === 'Platinum') {
+      standingText = trustScoreData?.risk_tier ? `${trustScoreData.risk_tier} Standing` : 'Excellent Standing';
       standingBg = '#2D7D4625';
-    } else if (currentScore < 650) {
-      standingText = 'Fair Standing';
+    } else if (currentScore < 650 || trustScoreData?.risk_tier === 'Bronze' || trustScoreData?.risk_tier === 'Unrated') {
+      standingText = trustScoreData?.risk_tier ? `${trustScoreData.risk_tier} Standing` : 'Fair Standing';
       standingColor = '#CC8600'; 
       standingBg = '#CC860020';
     }
@@ -427,23 +463,40 @@ export default function DashboardScreen() {
         </View>
 
         {/* AI Insight Section */}
-        <View style={styles.insightBox}>
-          <SparkleWatermark />
-          <View style={styles.insightHeader}>
-            <SparkleIcon size={16} />
-            <Text style={styles.insightTitle}>AI INSIGHT</Text>
+        {trustScoreData?.score_explanation ? (
+          <View style={styles.insightBox}>
+            <SparkleWatermark />
+            <View style={styles.insightHeader}>
+              <SparkleIcon size={16} />
+              <Text style={styles.insightTitle}>TRUSTSCORE™ INSIGHT</Text>
+            </View>
+            <Text style={styles.insightText}>
+              {trustScoreData.score_explanation}
+            </Text>
+            <View style={{ marginTop: 12, flexDirection: 'row', justifyContent: 'space-between' }}>
+              <Text style={{ fontSize: 12, color: '#895100', fontWeight: 'bold' }}>Default Probability: {trustScoreData.default_probability}</Text>
+              <Text style={{ fontSize: 12, color: '#895100', fontWeight: 'bold' }}>Loan Limit: {trustScoreData.recommended_loan_limit}</Text>
+            </View>
           </View>
-          <Text style={styles.insightText}>
-            Your Tuesday sales are <Text style={styles.boldText}>40% higher</Text> — consider restocking your inventory on Mondays to meet peak demand.
-          </Text>
-          <Pressable 
-            style={styles.insightLinkBtn} 
-            onPress={() => setReportModalVisible(true)}
-          >
-            <Text style={styles.insightLinkLabel}>View Full Report </Text>
-            <SymbolView tintColor="#895100" name="arrow_forward" size={14} />
-          </Pressable>
-        </View>
+        ) : (
+          <View style={styles.insightBox}>
+            <SparkleWatermark />
+            <View style={styles.insightHeader}>
+              <SparkleIcon size={16} />
+              <Text style={styles.insightTitle}>AI INSIGHT</Text>
+            </View>
+            <Text style={styles.insightText}>
+              Your Tuesday sales are <Text style={styles.boldText}>40% higher</Text> — consider restocking your inventory on Mondays to meet peak demand.
+            </Text>
+            <Pressable 
+              style={styles.insightLinkBtn} 
+              onPress={() => setReportModalVisible(true)}
+            >
+              <Text style={styles.insightLinkLabel}>View Full Report </Text>
+              <SymbolView tintColor="#895100" name="arrow_forward" size={14} />
+            </Pressable>
+          </View>
+        )}
       </View>
     );
   };
@@ -556,41 +609,13 @@ export default function DashboardScreen() {
 
       </ScrollView>
 
-      {/* Floating Bottom Tab Bar for Vendor role (matches mockup exactly) */}
-      {user?.role !== 'LENDER' && (
-        <View style={styles.floatingTabBar}>
-          <Pressable style={styles.tabItem} onPress={() => showToast('🏠 Already on Dashboard home.')}>
-            <View style={styles.activeTabCircle}>
-              <SymbolView tintColor="#ffffff" name="home" size={22} />
-            </View>
-            <Text style={styles.activeTabText}>Home</Text>
-          </Pressable>
-
-          <Pressable style={styles.tabItem} onPress={() => setWalletModalVisible(true)}>
-            <SymbolView tintColor="#8E8E93" name="account_balance_wallet" size={22} />
-            <Text style={styles.inactiveTabText}>Wallet</Text>
-          </Pressable>
-
-          <View style={styles.centerTabContainer}>
-            <Pressable 
-              style={({ pressed }) => [styles.centerTabButton, { transform: [{ scale: pressed ? 0.95 : 1.0 }] }]}
-              onPress={() => setLedgerModalVisible(true)}
-            >
-              <SymbolView tintColor="#ffffff" name="payments" size={26} />
-            </Pressable>
-          </View>
-
-          <Pressable style={styles.tabItem} onPress={() => setNotificationsModalVisible(true)}>
-            <SymbolView tintColor="#8E8E93" name="receipt_long" size={22} />
-            <Text style={styles.inactiveTabText}>History</Text>
-          </Pressable>
-
-          <Pressable style={styles.tabItem} onPress={() => setAccountModalVisible(true)}>
-            <SymbolView tintColor="#8E8E93" name="person" size={22} />
-            <Text style={styles.inactiveTabText}>Account</Text>
-          </Pressable>
-        </View>
-      )}
+      <BottomTabBar 
+        activeTab="home"
+        userRole={user?.role}
+        onCenterPress={() => setLedgerModalVisible(true)}
+        onHistoryPress={() => setNotificationsModalVisible(true)}
+        onAccountPress={() => setAccountModalVisible(true)}
+      />
 
       {/* -------------------- MODALS -------------------- */}
 
@@ -910,50 +935,6 @@ export default function DashboardScreen() {
                 </Text>
               </View>
             </View>
-          </View>
-        </View>
-      </Modal>
-
-      {/* 7. Interactive Wallet Modal */}
-      <Modal
-        visible={walletModalVisible}
-        animationType="slide"
-        transparent
-        onRequestClose={() => setWalletModalVisible(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalCardContainer}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitleText}>Digital Wallet & Ledger</Text>
-              <Pressable onPress={() => setWalletModalVisible(false)} style={styles.modalCloseBtn}>
-                <SymbolView tintColor="#1c1c18" name="xmark" size={20} />
-              </Pressable>
-            </View>
-
-            <View style={styles.walletBalanceCard}>
-              <Text style={styles.walletBalanceLabel}>AVAILABLE CREDIT LIMIT</Text>
-              <Text style={styles.walletBalanceValue}>₹50,000</Text>
-              <Text style={styles.walletBalanceSub}>Outstanding Balance: ₹4,200</Text>
-            </View>
-
-            <Text style={styles.inputLabel}>REPAYMENT STATUS</Text>
-            <View style={styles.repaymentStatusBox}>
-              <View style={styles.repaymentStatusRow}>
-                <Text style={styles.repaymentStatusText}>Next Due: June 05, 2026</Text>
-                <Text style={styles.repaymentStatusAmt}>₹4,200</Text>
-              </View>
-              <Pressable style={styles.payNowBtn} onPress={() => {
-                setWalletModalVisible(false);
-                showToast('💳 Repayment initiated successfully!');
-              }}>
-                <Text style={styles.payNowBtnText}>Repay Now</Text>
-              </Pressable>
-            </View>
-
-            <Text style={styles.inputLabel}>LEDGER INSIGHT</Text>
-            <Text style={styles.infoBoxText}>
-              Your credit utilization is at 8.4%. Maintaining utilization under 30% helps improve your TrustScore™ standing.
-            </Text>
           </View>
         </View>
       </Modal>
