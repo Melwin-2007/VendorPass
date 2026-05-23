@@ -296,23 +296,17 @@ export default function DashboardScreen() {
 
     const getActivityStyle = (title: string, amount: string) => {
       const isExpense = amount.startsWith('-');
-      if (title.toLowerCase().includes('distributor') || title.toLowerCase().includes('supplier') || isExpense) {
+      if (isExpense) {
         return {
-          icon: 'local_shipping',
-          iconBg: '#EAF0F6',
-          iconColor: '#3A86C8',
-        };
-      } else if (title.toLowerCase().includes('loan') || title.toLowerCase().includes('disbursement')) {
-        return {
-          icon: 'account_balance',
-          iconBg: '#FDF2E2',
-          iconColor: '#895100',
+          icon: 'arrow.up',
+          iconBg: '#F9EBEA',
+          iconColor: '#C0392B',
         };
       } else {
         return {
-          icon: 'qr_code_2',
-          iconBg: '#FDF2E2',
-          iconColor: '#D4820A',
+          icon: 'arrow.down',
+          iconBg: '#E8F6F3',
+          iconColor: '#2D7D46',
         };
       }
     };

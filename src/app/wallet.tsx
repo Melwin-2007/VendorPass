@@ -198,7 +198,7 @@ export default function WalletScreen() {
                 <View key={tx.id} style={styles.txCard}>
                   <View style={styles.txLeft}>
                     <View style={[styles.txIcon, { backgroundColor: isAdd ? 'rgba(45, 125, 70, 0.1)' : 'rgba(192, 57, 43, 0.1)' }]}>
-                      <SymbolView name={isAdd ? 'south_west' : 'north_east'} size={20} tintColor={isAdd ? '#2D7D46' : '#C0392B'} />
+                      <SymbolView name={isAdd ? 'arrow.down' : 'arrow.up'} size={20} tintColor={isAdd ? '#2D7D46' : '#C0392B'} />
                     </View>
                     <View>
                       <Text style={styles.txDesc}>{tx.description}</Text>

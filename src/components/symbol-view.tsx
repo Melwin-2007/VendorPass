@@ -57,6 +57,8 @@ const ICON_MAPPING: Record<string, { set: 'Ionicons' | 'Feather' | 'FontAwesome'
   'link': { set: 'Ionicons', name: 'link-outline' },
 
   // Roles & Custom UI
+  'arrow.up': { set: 'Ionicons', name: 'arrow-up-outline' },
+  'arrow.down': { set: 'Ionicons', name: 'arrow-down-outline' },
   'building.columns': { set: 'Ionicons', name: 'business-outline' },
   'shield.chevron': { set: 'Ionicons', name: 'shield-checkmark-outline' },
   'account_balance_wallet': { set: 'Ionicons', name: 'wallet-outline' },
