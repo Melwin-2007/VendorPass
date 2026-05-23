@@ -4,6 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/hooks/use-theme';
 import { BottomTabInset, Spacing } from '@/constants/theme';
 import { SymbolView } from '@/components/symbol-view';
+import { router } from 'expo-router';
 
 export default function ExploreScreen() {
   const theme = useTheme();
@@ -70,6 +71,10 @@ export default function ExploreScreen() {
       
       {/* Header */}
       <View style={styles.header}>
+        <Pressable onPress={() => router.back()} style={styles.backButton}>
+          <SymbolView tintColor={theme.primary} name="chevron.left" size={20} />
+          <Text style={[styles.backText, { color: theme.primary }]}>Back to Dashboard</Text>
+        </Pressable>
         <Text style={[styles.headerTitle, { color: theme.text }]}>Credit Hub</Text>
         <Text style={[styles.headerSubtitle, { color: theme.textSecondary }]}>
           Compare rates and access personalized loans powered by your behavioral TrustScore™.
@@ -156,6 +161,18 @@ const styles = StyleSheet.create({
   },
   header: {
     marginVertical: Spacing.four,
+    gap: 12,
+  },
+  backButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginBottom: 8,
+  },
+  backText: {
+    fontSize: 14,
+    fontWeight: '700',
+    fontFamily: Platform.OS === 'web' ? 'Sora' : 'sans-serif',
   },
   headerTitle: {
     fontSize: 28,

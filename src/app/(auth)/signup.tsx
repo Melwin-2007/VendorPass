@@ -19,7 +19,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { supabase } from '@/lib/supabase';
 
 export default function SignUpScreen() {
-  const { signUp, loading } = useAuth();
+  const { signUp, signIn, loading } = useAuth();
 
   // Form states
   const [fullName, setFullName] = useState('');
@@ -181,7 +181,7 @@ export default function SignUpScreen() {
     }, password);
 
     if (success) {
-      router.push('/(auth)/success');
+      router.replace('/(auth)/verify-email');
     }
   };
 

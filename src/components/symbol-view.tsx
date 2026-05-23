@@ -70,6 +70,17 @@ const ICON_MAPPING: Record<string, { set: 'Ionicons' | 'Feather' | 'FontAwesome'
   'add_a_photo': { set: 'Ionicons', name: 'camera-outline' },
   'rocket_launch': { set: 'Ionicons', name: 'rocket-outline' },
   'check_circle': { set: 'Ionicons', name: 'checkmark-circle-outline' },
+  
+  // Redesigned dashboard specific icons
+  'notifications': { set: 'Ionicons', name: 'notifications-outline' },
+  'payments': { set: 'Ionicons', name: 'cash-outline' },
+  'analytics': { set: 'Ionicons', name: 'bar-chart-outline' },
+  'folder_open': { set: 'Ionicons', name: 'folder-open-outline' },
+  'local_shipping': { set: 'Feather', name: 'truck' },
+  'qr_code_2': { set: 'Ionicons', name: 'qr-code-outline' },
+  'auto_awesome': { set: 'Ionicons', name: 'sparkles-outline' },
+  'home': { set: 'Ionicons', name: 'home-outline' },
+  'receipt_long': { set: 'Ionicons', name: 'document-text-outline' },
 };
 
 export function SymbolView({

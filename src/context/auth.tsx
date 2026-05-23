@@ -27,6 +27,7 @@ interface AuthContextType {
   completeOtp: (otp: string) => Promise<boolean>;
   signOut: () => void;
   setSignupProgress: (progress: number) => void;
+  updateRole?: (role: UserRole) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -209,6 +210,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     router.replace('/(auth)/login');
   };
 
+  const updateRole = (role: UserRole) => {
+    if (user) {
+      setUser({ ...user, role });
+    }
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -223,6 +230,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         completeOtp,
         signOut,
         setSignupProgress,
+        updateRole,
       }}>
       {children}
     </AuthContext.Provider>

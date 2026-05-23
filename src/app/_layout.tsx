@@ -10,6 +10,7 @@ export default function RootLayout() {
       <AuthProvider>
         {Platform.OS === 'web' && (
           <style dangerouslySetInnerHTML={{ __html: `
+            @import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=Sora:wght@100..800&family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&display=swap');
             input, textarea, select {
               outline: none !important;
               box-shadow: none !important;
