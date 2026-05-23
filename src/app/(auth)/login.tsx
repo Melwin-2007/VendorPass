@@ -9,12 +9,14 @@ import {
   Platform,
   ScrollView,
   Text,
+  Image,
 } from 'react-native';
 import { router } from 'expo-router';
 import { useAuth } from '@/context/auth';
 import { useTheme } from '@/hooks/use-theme';
 import { Spacing } from '@/constants/theme';
-import { SymbolView } from '@/components/symbol-view';
+import { MaterialIcons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 
 export default function LoginScreen() {
   const { signIn, loading } = useAuth();
@@ -44,45 +46,59 @@ export default function LoginScreen() {
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      style={[styles.container, { backgroundColor: theme.background }]}>
+      style={[styles.container, { backgroundColor: '#F9F5EF' }]}>
+      
+      {Platform.OS === 'web' && (
+        <style dangerouslySetInnerHTML={{ __html: `
+          @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500&family=Playfair+Display:wght@700;900&family=Sora:wght@600;700&family=JetBrains+Mono:wght@600&display=swap');
+        `}} />
+      )}
+
       <ScrollView contentContainerStyle={styles.scrollContainer} bounces={false}>
-        {/* Top Hero Section */}
-        <View style={[styles.heroSection, { backgroundColor: theme.secondary }]}>
-          <View style={styles.logoRow}>
-            <View style={[styles.logoIcon, { backgroundColor: theme.primary }]}>
-              <Text style={styles.logoLetter}>V</Text>
+        {/* Top Hero Section (Height ~350px) with Curve */}
+        <View style={styles.heroWrapper}>
+          <View style={styles.heroBackground}>
+            {/* Network Pattern overlay */}
+            <View style={styles.patternOverlay} />
+            
+            {/* Top right and bottom left glow effects */}
+            <View style={styles.glowRight} />
+            <View style={styles.glowLeft} />
+
+            <View style={styles.heroContent}>
+              <Text style={styles.heroTitle}>VendorPASS</Text>
+              <Text style={styles.heroSubtitle}>Welcome Back</Text>
             </View>
-            <Text style={styles.logoText}>
-              Vendor<Text style={{ color: theme.highlight }}>PASS</Text>
-            </Text>
           </View>
-          <Text style={styles.heroTitle}>Welcome Back</Text>
-          <Text style={styles.heroSubtitle}>Sign in to your account to continue</Text>
-          <View style={[styles.goldBar, { backgroundColor: theme.primary }]} />
         </View>
 
-        {/* Sliding White Card */}
-        <View style={[styles.card, { backgroundColor: theme.card }]}>
+        {/* Content Card overlapping the hero section */}
+        <View style={styles.card}>
           {errorMessage ? (
-            <View style={[styles.errorContainer, { backgroundColor: theme.error + '15', borderColor: theme.error }]}>
+            <View style={[styles.errorContainer, { borderColor: theme.error }]}>
               <Text style={[styles.errorText, { color: theme.error }]}>{errorMessage}</Text>
             </View>
           ) : null}
 
-          {/* Email field */}
+          {/* Email Field */}
           <View style={styles.fieldContainer}>
-            <Text style={[styles.fieldLabel, { color: theme.textSecondary }]}>EMAIL ADDRESS</Text>
+            <Text style={styles.fieldLabel}>EMAIL ADDRESS</Text>
             <View
               style={[
                 styles.inputWrapper,
-                { borderColor: emailFocused ? theme.primary : theme.border },
+                { borderColor: emailFocused ? '#D4820A' : '#E8E0D5' },
                 emailFocused && styles.inputFocusedShadow,
               ]}>
-              <SymbolView tintColor={theme.textMuted} name="envelope" size={20} style={styles.inputIcon} />
+              <MaterialIcons
+                name="mail"
+                size={20}
+                color={emailFocused ? '#D4820A' : '#A0A0A0'}
+                style={styles.inputIcon}
+              />
               <TextInput
-                style={[styles.input, { color: theme.text }]}
-                placeholder="Enter your email"
-                placeholderTextColor={theme.textMuted}
+                style={styles.input}
+                placeholder="name@company.com"
+                placeholderTextColor="#A0A0A0"
                 value={email}
                 onChangeText={setEmail}
                 keyboardType="email-address"
@@ -93,37 +109,42 @@ export default function LoginScreen() {
             </View>
           </View>
 
-          {/* Password field */}
+          {/* Password Field */}
           <View style={styles.fieldContainer}>
             <View style={styles.passwordHeader}>
-              <Text style={[styles.fieldLabel, { color: theme.textSecondary }]}>PASSWORD</Text>
+              <Text style={styles.fieldLabel}>PASSWORD</Text>
               <Pressable onPress={() => {}}>
-                <Text style={[styles.forgotPassword, { color: theme.primary }]}>Forgot Password?</Text>
+                <Text style={styles.forgotPassword}>Forgot Password?</Text>
               </Pressable>
             </View>
             <View
               style={[
                 styles.inputWrapper,
-                { borderColor: passwordFocused ? theme.primary : theme.border },
+                { borderColor: passwordFocused ? '#D4820A' : '#E8E0D5' },
                 passwordFocused && styles.inputFocusedShadow,
               ]}>
-              <SymbolView tintColor={theme.textMuted} name="lock" size={20} style={styles.inputIcon} />
+              <MaterialIcons
+                name="lock"
+                size={20}
+                color={passwordFocused ? '#D4820A' : '#A0A0A0'}
+                style={styles.inputIcon}
+              />
               <TextInput
-                style={[styles.input, { color: theme.text }]}
-                placeholder="Enter password"
-                placeholderTextColor={theme.textMuted}
+                style={styles.input}
+                placeholder="••••••••"
+                placeholderTextColor="#A0A0A0"
                 secureTextEntry={secureText}
                 value={password}
                 onChangeText={setPassword}
                 autoCapitalize="none"
                 onFocus={() => setPasswordFocused(true)}
-                onBlur={() => setPasswordFocused(false)}
+                onBlur={() => passwordFocused && setPasswordFocused(false)}
               />
               <Pressable style={styles.eyeButton} onPress={() => setSecureText(!secureText)}>
-                <SymbolView
-                  tintColor={theme.primary}
-                  name={secureText ? 'eye.slash' : 'eye'}
+                <MaterialIcons
+                  name={secureText ? 'visibility' : 'visibility-off'}
                   size={20}
+                  color="#A0A0A0"
                 />
               </Pressable>
             </View>
@@ -134,7 +155,6 @@ export default function LoginScreen() {
             style={({ pressed }) => [
               styles.signInButton,
               {
-                backgroundColor: theme.primary,
                 opacity: pressed || loading ? 0.9 : 1.0,
                 transform: [{ scale: pressed ? 0.98 : 1.0 }],
               },
@@ -148,10 +168,11 @@ export default function LoginScreen() {
             )}
           </Pressable>
 
+          {/* Divider */}
           <View style={styles.dividerRow}>
-            <View style={[styles.dividerLine, { backgroundColor: theme.border }]} />
-            <Text style={[styles.dividerText, { color: theme.textMuted }]}>or continue with</Text>
-            <View style={[styles.dividerLine, { backgroundColor: theme.border }]} />
+            <View style={styles.dividerLine} />
+            <Text style={styles.dividerText}>OR CONTINUE WITH</Text>
+            <View style={styles.dividerLine} />
           </View>
 
           {/* Google Sign In Button */}
@@ -159,30 +180,40 @@ export default function LoginScreen() {
             style={({ pressed }) => [
               styles.googleButton,
               {
-                borderColor: theme.border,
-                backgroundColor: theme.card,
-                opacity: pressed ? 0.8 : 1.0,
+                opacity: pressed ? 0.95 : 1.0,
+                transform: [{ scale: pressed ? 0.98 : 1.0 }],
               },
             ]}
             onPress={() => {
-              // Mock auth
               signIn('ramesh@kirana.com', 'password').then((success) => {
                 if (success) router.replace('/(tabs)');
               });
             }}>
-            <SymbolView tintColor="#EA4335" name="g.circle.fill" size={20} style={styles.googleIcon} />
-            <Text style={[styles.googleButtonText, { color: theme.text }]}>Continue with Google</Text>
+            <Image
+              source={{ uri: 'https://lh3.googleusercontent.com/aida-public/AB6AXuBAtjl6tQHt_LLCf3Jcoforjqd0tnFGf4OXKOh7VYK9xerWtsjv3A8vo37w67W96Y5_H0zmaW9YdFK1Chpq6jA64q_lWBLbMhrqvz7uWd2qN2hw8kyF_IiMXbz-9qZJF2rftwrvztwDcp-XOdBhZ8jw33haXA3cHPbgoCnc3Kz5UiTwFpw7XWCGVw0-1uJxyZogRDIBCj27masHXIgu9gY9b2Y_9c7M17CFofpdN5nKyHas0NSoAbgbHQUqQnSJv0IJBpW6LJfMQDSN' }}
+              style={styles.googleIcon}
+            />
+            <Text style={styles.googleButtonText}>Google Sign In</Text>
           </Pressable>
 
-          {/* Sign Up Link */}
-          <View style={styles.signUpRow}>
-            <Text style={[styles.signUpText, { color: theme.textSecondary }]}>Don&apos;t have an account? </Text>
+          {/* Footer Link */}
+          <View style={styles.footerRow}>
+            <Text style={styles.footerText}>Don't have an account? </Text>
             <Pressable onPress={() => router.push('/(auth)/role-selection')}>
-              <Text style={[styles.signUpLink, { color: theme.primary }]}>Sign Up</Text>
+              <Text style={styles.footerLink}>Join VendorPASS</Text>
             </Pressable>
           </View>
         </View>
       </ScrollView>
+
+      {/* Ambient Visual Elements (top right grid dots) */}
+      <View style={styles.ambientDots}>
+        <View style={styles.dotRow}>
+          <View style={styles.dot} />
+          <View style={[styles.dot, { opacity: 0.4 }]} />
+          <View style={[styles.dot, { opacity: 0.2 }]} />
+        </View>
+      </View>
     </KeyboardAvoidingView>
   );
 }
@@ -194,69 +225,111 @@ const styles = StyleSheet.create({
   scrollContainer: {
     flexGrow: 1,
   },
-  heroSection: {
-    paddingTop: 60,
+  heroWrapper: {
+    width: '100%',
+    height: 353,
+    overflow: 'hidden',
+    position: 'relative',
+    backgroundColor: '#F9F5EF',
+  },
+  heroBackground: {
+    width: '140%',
+    height: 353,
+    left: '-20%',
+    borderBottomLeftRadius: 320,
+    borderBottomRightRadius: 320,
+    backgroundColor: '#1A3A4A',
+    position: 'absolute',
+    overflow: 'hidden',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  patternOverlay: {
+    ...StyleSheet.absoluteFill,
+    opacity: 0.1,
+    backgroundImage: 'radial-gradient(circle at 2px 2px, rgba(255,255,255,0.2) 1px, transparent 0)',
+    backgroundSize: '40px 40px',
+    ...Platform.select({
+      native: {
+        // Native fallback pattern if any
+      },
+    }),
+  },
+  glowRight: {
+    position: 'absolute',
+    top: -96,
+    right: -96,
+    width: 256,
+    height: 256,
+    borderRadius: 128,
+    backgroundColor: '#895100',
+    opacity: 0.2,
+    ...Platform.select({
+      web: {
+        filter: 'blur(100px)',
+      },
+    }),
+  },
+  glowLeft: {
+    position: 'absolute',
+    bottom: -96,
+    left: -96,
+    width: 256,
+    height: 256,
+    borderRadius: 128,
+    backgroundColor: '#446274',
+    opacity: 0.2,
+    ...Platform.select({
+      web: {
+        filter: 'blur(100px)',
+      },
+    }),
+  },
+  heroContent: {
+    width: '71.4%', // 100% of screen width (since parent is 140% wide, 1/1.4 = 71.4%)
+    alignItems: 'center',
     paddingHorizontal: Spacing.four,
-    paddingBottom: 40,
-    justifyContent: 'center',
-    alignItems: 'flex-start',
-  },
-  logoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: Spacing.three,
-  },
-  logoIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: Spacing.two,
-  },
-  logoLetter: {
-    color: '#fff',
-    fontSize: 20,
-    fontWeight: 'bold',
-  },
-  logoText: {
-    color: '#fff',
-    fontSize: 22,
-    fontWeight: 'bold',
-    fontFamily: Platform.OS === 'web' ? 'Playfair Display' : 'serif',
   },
   heroTitle: {
-    color: '#fff',
-    fontSize: 28,
-    fontWeight: 'bold',
+    color: '#ffffff',
+    fontSize: 32,
+    fontWeight: '900',
+    letterSpacing: -0.5,
     fontFamily: Platform.OS === 'web' ? 'Playfair Display' : 'serif',
     marginBottom: Spacing.one,
   },
   heroSubtitle: {
-    color: 'rgba(255, 255, 255, 0.7)',
-    fontSize: 14,
-    fontFamily: Platform.OS === 'web' ? 'DM Sans' : 'sans-serif',
-    marginBottom: Spacing.three,
-  },
-  goldBar: {
-    width: 40,
-    height: 3,
-    borderRadius: 1.5,
+    color: 'rgba(255, 255, 255, 0.9)',
+    fontSize: 22,
+    fontWeight: '700',
+    fontFamily: Platform.OS === 'web' ? 'Playfair Display' : 'serif',
+    maxWidth: 280,
+    textAlign: 'center',
   },
   card: {
     flex: 1,
+    backgroundColor: '#FFFFFF',
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
-    marginTop: -20,
+    marginTop: -48,
     paddingHorizontal: Spacing.four,
     paddingTop: Spacing.five,
-    paddingBottom: Spacing.five,
+    paddingBottom: Spacing.six,
+    width: '100%',
+    maxWidth: 480,
+    alignSelf: 'center',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 5,
   },
   errorContainer: {
-    borderWidth: 1,
+    borderWidth: 1.5,
+    backgroundColor: 'rgba(192, 57, 43, 0.08)',
     padding: Spacing.three,
     borderRadius: 12,
-    marginBottom: Spacing.three,
+    marginBottom: Spacing.four,
   },
   errorText: {
     fontSize: 14,
@@ -274,13 +347,18 @@ const styles = StyleSheet.create({
   fieldLabel: {
     fontSize: 11,
     fontWeight: 'bold',
+    color: '#6B6B6B',
     letterSpacing: 1.2,
     marginBottom: Spacing.one,
+    marginLeft: 4,
     fontFamily: Platform.OS === 'web' ? 'Sora' : 'sans-serif',
   },
   forgotPassword: {
-    fontSize: 12,
-    fontWeight: '600',
+    fontSize: 11,
+    fontWeight: 'bold',
+    color: '#895100',
+    letterSpacing: 1.2,
+    marginBottom: Spacing.one,
     fontFamily: Platform.OS === 'web' ? 'Sora' : 'sans-serif',
   },
   inputWrapper: {
@@ -289,6 +367,7 @@ const styles = StyleSheet.create({
     height: 56,
     borderWidth: 1.5,
     borderRadius: 14,
+    backgroundColor: '#ffffff',
     paddingHorizontal: Spacing.three,
   },
   inputFocusedShadow: {
@@ -296,14 +375,14 @@ const styles = StyleSheet.create({
       ios: {
         shadowColor: '#D4820A',
         shadowOffset: { width: 0, height: 0 },
-        shadowOpacity: 0.15,
+        shadowOpacity: 0.1,
         shadowRadius: 6,
       },
       android: {
-        elevation: 2,
+        elevation: 1,
       },
       web: {
-        boxShadow: '0 0 0 3px rgba(212,130,10,0.15)',
+        boxShadow: '0 0 0 4px rgba(212,130,10,0.1)',
       },
     }),
   },
@@ -313,6 +392,7 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     fontSize: 15,
+    color: '#1C1C1E',
     fontFamily: Platform.OS === 'web' ? 'DM Sans' : 'sans-serif',
   },
   eyeButton: {
@@ -320,29 +400,21 @@ const styles = StyleSheet.create({
   },
   signInButton: {
     height: 56,
+    backgroundColor: '#D4820A',
     borderRadius: 16,
     justifyContent: 'center',
     alignItems: 'center',
     marginTop: Spacing.two,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#D4820A',
-        shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 0.35,
-        shadowRadius: 12,
-      },
-      android: {
-        elevation: 4,
-      },
-      web: {
-        boxShadow: '0 8px 24px rgba(212,130,10,0.35)',
-      },
-    }),
+    shadowColor: '#D4820A',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.35,
+    shadowRadius: 20,
+    elevation: 4,
   },
   signInButtonText: {
     color: '#fff',
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '700',
     fontFamily: Platform.OS === 'web' ? 'Sora' : 'sans-serif',
   },
   dividerRow: {
@@ -353,42 +425,73 @@ const styles = StyleSheet.create({
   dividerLine: {
     flex: 1,
     height: 1,
+    backgroundColor: '#E8E0D5',
   },
   dividerText: {
     marginHorizontal: Spacing.three,
-    fontSize: 12,
-    fontFamily: Platform.OS === 'web' ? 'DM Sans' : 'sans-serif',
+    fontSize: 11,
+    fontWeight: 'bold',
+    color: '#6B6B6B',
+    letterSpacing: 1,
+    fontFamily: Platform.OS === 'web' ? 'Sora' : 'sans-serif',
   },
   googleButton: {
     flexDirection: 'row',
     height: 56,
     borderWidth: 1.5,
+    borderColor: '#E8E0D5',
+    backgroundColor: '#ffffff',
     borderRadius: 16,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: Spacing.four,
   },
   googleIcon: {
+    width: 24,
+    height: 24,
     marginRight: Spacing.two,
   },
   googleButtonText: {
-    fontSize: 15,
-    fontWeight: '600',
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#1C1C1E',
     fontFamily: Platform.OS === 'web' ? 'Sora' : 'sans-serif',
   },
-  signUpRow: {
+  footerRow: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: Spacing.two,
+    marginTop: Spacing.four,
   },
-  signUpText: {
+  footerText: {
     fontSize: 14,
+    color: '#6B6B6B',
     fontFamily: Platform.OS === 'web' ? 'DM Sans' : 'sans-serif',
   },
-  signUpLink: {
+  footerLink: {
     fontSize: 14,
     fontWeight: 'bold',
+    color: '#895100',
     fontFamily: Platform.OS === 'web' ? 'DM Sans' : 'sans-serif',
+    textDecorationLine: 'underline',
+  },
+  ambientDots: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    padding: Spacing.five,
+    opacity: 0.2,
+    zIndex: 20,
+    pointerEvents: 'none',
+  },
+  dotRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  dot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#895100',
   },
 });

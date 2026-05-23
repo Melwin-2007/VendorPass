@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { router } from 'expo-router';
+import { supabase } from '@/lib/supabase';
 
 export type UserRole = 'VENDOR' | 'LENDER' | 'BANK';
 
@@ -22,7 +23,7 @@ interface AuthContextType {
   loading: boolean;
   signIn: (email: string, password: string) => Promise<boolean>;
   selectRole: (role: UserRole) => void;
-  signUp: (profile: Omit<UserProfile, 'role' | 'score'>) => Promise<boolean>;
+  signUp: (profile: Omit<UserProfile, 'role' | 'score'>, password?: string) => Promise<boolean>;
   completeOtp: (otp: string) => Promise<boolean>;
   signOut: () => void;
   setSignupProgress: (progress: number) => void;
@@ -35,39 +36,71 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [selectedSignupRole, setSelectedSignupRole] = useState<UserRole | null>(null);
   const [signupProgress, setSignupProgress] = useState<number>(0.2); // step progress indicator
   const [tempProfile, setTempProfile] = useState<Omit<UserProfile, 'role' | 'score'> | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [tempPassword, setTempPassword] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
   const isAuthenticated = !!user;
 
-  // Mock initial load/splash transition helper
+  // Supabase auth state listener
   useEffect(() => {
-    // Check if there is any cached user (mocked)
+    // Get active session on mount
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) {
+        const metadata = session.user.user_metadata;
+        setUser({
+          name: metadata?.name || session.user.email?.split('@')[0] || 'User',
+          username: metadata?.username || 'user',
+          email: session.user.email || '',
+          phone: metadata?.phone || '',
+          role: (metadata?.role as UserRole) || 'VENDOR',
+          selfie: metadata?.selfie || null,
+          businessPhoto: metadata?.businessPhoto || null,
+          score: metadata?.score || (metadata?.role === 'VENDOR' ? 620 : 0),
+        });
+      } else {
+        setUser(null);
+      }
+      setLoading(false);
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        if (session?.user) {
+          const metadata = session.user.user_metadata;
+          setUser({
+            name: metadata?.name || session.user.email?.split('@')[0] || 'User',
+            username: metadata?.username || 'user',
+            email: session.user.email || '',
+            phone: metadata?.phone || '',
+            role: (metadata?.role as UserRole) || 'VENDOR',
+            selfie: metadata?.selfie || null,
+            businessPhoto: metadata?.businessPhoto || null,
+            score: metadata?.score || (metadata?.role === 'VENDOR' ? 620 : 0),
+          });
+        } else {
+          setUser(null);
+        }
+        setLoading(false);
+      }
+    );
+
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
 
   const signIn = async (email: string, password: string): Promise<boolean> => {
     setLoading(true);
-    // Simulate API delay
-    await new Promise((resolve) => setTimeout(resolve, 800));
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
 
-    // Simple validation
-    if (!email || !password) {
+    if (error) {
       setLoading(false);
       return false;
     }
 
-    // Default mock user
-    const mockUser: UserProfile = {
-      name: 'Ramesh Kumar',
-      username: 'ramesh_kirana',
-      email: email,
-      phone: '9876543210',
-      role: 'VENDOR',
-      selfie: null,
-      businessPhoto: null,
-      score: 742, // TrustScore
-    };
-
-    setUser(mockUser);
     setLoading(false);
     return true;
   };
@@ -77,10 +110,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setSignupProgress(0.5);
   };
 
-  const signUp = async (profile: Omit<UserProfile, 'role' | 'score'>): Promise<boolean> => {
+  const signUp = async (profile: Omit<UserProfile, 'role' | 'score'>, password?: string): Promise<boolean> => {
     setLoading(true);
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+    await new Promise((resolve) => setTimeout(resolve, 800));
     setTempProfile(profile);
+    if (password) {
+      setTempPassword(password);
+    }
     setSignupProgress(0.8);
     setLoading(false);
     return true;
@@ -88,33 +124,55 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const completeOtp = async (otp: string): Promise<boolean> => {
     setLoading(true);
-    await new Promise((resolve) => setTimeout(resolve, 1200));
+    await new Promise((resolve) => setTimeout(resolve, 1000));
 
     if (otp !== '123456') {
-      // Mock valid OTP is 123456
       setLoading(false);
       return false;
     }
 
     if (tempProfile && selectedSignupRole) {
-      const newUser: UserProfile = {
-        ...tempProfile,
-        role: selectedSignupRole,
-        score: selectedSignupRole === 'VENDOR' ? 620 : 0, // Starts at 620 for vendor
-      };
-      setUser(newUser);
-    } else {
-      // Fallback
-      setUser({
-        name: 'Guest Vendor',
-        username: 'guest_vendor',
-        email: 'guest@vendorpass.ai',
-        phone: '9999999999',
-        role: 'VENDOR',
-        selfie: null,
-        businessPhoto: null,
-        score: 620,
+      const { error } = await supabase.auth.signUp({
+        email: tempProfile.email,
+        password: tempPassword || 'DefaultPassword123!',
+        options: {
+          data: {
+            name: tempProfile.name,
+            username: tempProfile.username,
+            phone: tempProfile.phone,
+            role: selectedSignupRole,
+            selfie: tempProfile.selfie,
+            businessPhoto: tempProfile.businessPhoto,
+            score: selectedSignupRole === 'VENDOR' ? 620 : 0,
+          },
+        },
       });
+
+      if (error) {
+        setLoading(false);
+        return false;
+      }
+    } else {
+      // Fallback guest signup
+      const guestEmail = `guest_${Date.now()}@vendorpass.ai`;
+      const { error } = await supabase.auth.signUp({
+        email: guestEmail,
+        password: 'GuestPassword123!',
+        options: {
+          data: {
+            name: 'Guest Vendor',
+            username: 'guest_vendor',
+            phone: '9999999999',
+            role: 'VENDOR',
+            score: 620,
+          },
+        },
+      });
+
+      if (error) {
+        setLoading(false);
+        return false;
+      }
     }
 
     setSignupProgress(1.0);
@@ -122,11 +180,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return true;
   };
 
-  const signOut = () => {
+  const signOut = async () => {
+    setLoading(true);
+    await supabase.auth.signOut();
     setUser(null);
     setSelectedSignupRole(null);
     setTempProfile(null);
+    setTempPassword(null);
     setSignupProgress(0.2);
+    setLoading(false);
     router.replace('/(auth)/login');
   };
 
@@ -157,3 +219,4 @@ export function useAuth() {
   }
   return context;
 }
+

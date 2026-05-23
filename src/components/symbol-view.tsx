@@ -59,6 +59,17 @@ const ICON_MAPPING: Record<string, { set: 'Ionicons' | 'Feather' | 'FontAwesome'
   // Roles & Custom UI
   'building.columns': { set: 'Ionicons', name: 'business-outline' },
   'shield.chevron': { set: 'Ionicons', name: 'shield-checkmark-outline' },
+  'account_balance_wallet': { set: 'Ionicons', name: 'wallet-outline' },
+  'account_balance': { set: 'Ionicons', name: 'business-outline' },
+  'arrow_back': { set: 'Ionicons', name: 'arrow-back' },
+  'arrow_forward': { set: 'Ionicons', name: 'arrow-forward' },
+  'badge': { set: 'Ionicons', name: 'card-outline' },
+  'alternate_email': { set: 'Ionicons', name: 'at-outline' },
+  'mail': { set: 'Ionicons', name: 'mail-outline' },
+  'cloud_upload': { set: 'Ionicons', name: 'cloud-upload-outline' },
+  'add_a_photo': { set: 'Ionicons', name: 'camera-outline' },
+  'rocket_launch': { set: 'Ionicons', name: 'rocket-outline' },
+  'check_circle': { set: 'Ionicons', name: 'checkmark-circle-outline' },
 };
 
 export function SymbolView({
