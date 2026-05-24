@@ -68,6 +68,7 @@ export default function HistoryScreen() {
   let isFullyPaid = false;
   let alreadyPaid = 0;
   let demoMonthsElapsed = 0;
+  let emiAmount = 0;
 
   if (selectedRepayment) {
     const principal = Number(selectedRepayment.amount);
@@ -76,7 +77,7 @@ export default function HistoryScreen() {
     
     const tenureMatches = selectedRepayment.tenure.match(/(\d+)/);
     const tenureMonths = tenureMatches ? parseInt(tenureMatches[1], 10) : 1;
-    const emiAmount = totalLoanAmount / tenureMonths;
+    emiAmount = totalLoanAmount / tenureMonths;
 
     const baseTime = selectedRepayment.accepted_at ? new Date(selectedRepayment.accepted_at).getTime() : new Date(selectedRepayment.created_at).getTime();
     const elapsedMilliseconds = Date.now() - baseTime;
@@ -139,6 +140,37 @@ export default function HistoryScreen() {
         console.error("TX Error:", tx1Err, tx2Err);
         showToast('❌ Wallet transaction failed (Check Console).');
       } else {
+        const paidMonths = Math.floor(alreadyPaid / emiAmount);
+        const isPayingLate = demoMonthsElapsed > paidMonths;
+        const isCompletingLoan = (cleanAmount + alreadyPaid) >= totalLoanAmount;
+
+        let scoreDelta = 0;
+        let aiReason = '';
+
+        if (isPayingLate) {
+          scoreDelta = -10;
+          aiReason = `Paid EMI late. Deducted 10 points.`;
+        } else {
+          scoreDelta = 5;
+          aiReason = `Paid EMI on time! Added 5 points.`;
+        }
+
+        if (isCompletingLoan) {
+          scoreDelta += 15;
+          aiReason += ` Successfully completed the loan! Bonus +15 points.`;
+        }
+
+        const { data: profile } = await supabase.from('profiles').select('score').eq('id', user.id).single();
+        const newScore = Math.max(0, (profile?.score || 620) + scoreDelta);
+
+        await supabase.from('profiles').update({ score: newScore }).eq('id', user.id);
+
+        await supabase.from('notifications').insert({
+          user_id: user.id,
+          title: 'TrustScore Update',
+          message: aiReason
+        });
+
         showToast('✅ EMI paid successfully!');
         setRepayModalVisible(false);
         setSelectedRepayment(null);

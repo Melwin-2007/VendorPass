@@ -103,6 +103,8 @@ export default function DashboardScreen() {
   const [lenderOffers, setLenderOffers] = useState<any[]>([]);
   const [walletTransactions, setWalletTransactions] = useState<any[]>([]);
   const [walletBalance, setWalletBalance] = useState(0);
+  const [notificationsList, setNotificationsList] = useState<any[]>([]);
+  const unreadCount = notificationsList.filter(n => !n.is_read).length;
 
   // Local metrics state
   const [supplierCount, setSupplierCount] = useState(0);
@@ -195,6 +197,30 @@ export default function DashboardScreen() {
       
     return () => { supabase.removeChannel(subscription); };
   }, [user]);
+
+  // Fetch Notifications globally
+  useEffect(() => {
+    if (!user) return;
+    const fetchNotifs = async () => {
+      const { data } = await supabase.from('notifications').select('*').eq('user_id', user.id).order('created_at', { ascending: false });
+      if (data) setNotificationsList(data);
+    };
+    fetchNotifs();
+    
+    const sub = supabase.channel(`notifs_${Date.now()}_${Math.random()}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'notifications', filter: `user_id=eq.${user.id}` }, fetchNotifs)
+      .subscribe();
+      
+    return () => { supabase.removeChannel(sub); };
+  }, [user]);
+
+  const handleOpenNotifications = async () => {
+    setNotificationsModalVisible(true);
+    const unreadIds = notificationsList.filter(n => !n.is_read).map(n => n.id);
+    if (unreadIds.length > 0) {
+      await supabase.from('notifications').update({ is_read: true }).in('id', unreadIds);
+    }
+  };
 
   // Fetch dynamic lender offers for Lender
   useEffect(() => {
@@ -388,6 +414,9 @@ export default function DashboardScreen() {
     let standingBg = '#D4820A20';
     let gaugeColor = '#D4820A';
     
+    const scoreDelta = currentScore - 620;
+    const trendPrefix = scoreDelta > 0 ? '↑ +' : scoreDelta < 0 ? '↓ ' : '';
+    
     if (currentScore >= 750) {
       standingText = 'Excellent Standing';
       standingColor = '#2D7D46'; // Green
@@ -437,11 +466,11 @@ export default function DashboardScreen() {
             <Text style={styles.vendorWelcomeText}>Good Morning, {user?.name?.split(' ')[0] || 'Raju'} 👋</Text>
           </View>
           <Pressable 
-            onPress={() => setNotificationsModalVisible(true)} 
+            onPress={handleOpenNotifications} 
             style={({ pressed }) => [styles.vendorNotifyBtn, { opacity: pressed ? 0.8 : 1 }]}
           >
             <SymbolView tintColor="#895100" name="notifications" size={24} />
-            <View style={styles.vendorNotifyBadge} />
+            {unreadCount > 0 && <View style={styles.vendorNotifyBadge} />}
           </Pressable>
         </View>
 
@@ -483,7 +512,9 @@ export default function DashboardScreen() {
             <View style={[styles.standingBadge, { backgroundColor: standingBg }]}>
               <Text style={[styles.standingBadgeText, { color: standingColor }]}>{standingText}</Text>
             </View>
-            <Text style={styles.trendText}>↑ +18 this month</Text>
+            <Text style={styles.trendText}>
+              {scoreDelta === 0 ? 'No change this month' : `${trendPrefix}${Math.abs(scoreDelta)} this month`}
+            </Text>
           </View>
 
           <View style={styles.heroDivider} />
@@ -1197,35 +1228,21 @@ export default function DashboardScreen() {
             </View>
 
             <View style={styles.notificationInboxList}>
-              <View style={styles.notificationItemCard}>
-                <View style={styles.notificationHeaderRow}>
-                  <Text style={styles.notificationItemTitle}>🎉 TrustScore Updated</Text>
-                  <Text style={styles.notificationTime}>Today</Text>
+              {notificationsList.length > 0 ? notificationsList.map(n => (
+                <View key={n.id} style={styles.notificationItemCard}>
+                  <View style={styles.notificationHeaderRow}>
+                    <Text style={styles.notificationItemTitle}>{n.title}</Text>
+                    <Text style={styles.notificationTime}>{new Date(n.created_at).toLocaleDateString()}</Text>
+                  </View>
+                  <Text style={styles.notificationBody}>
+                    {n.message}
+                  </Text>
                 </View>
-                <Text style={styles.notificationBody}>
-                  Namaste, Raju. Your TrustScore improved by 18 points this month. Your rating type is now Good Standing!
-                </Text>
-              </View>
-
-              <View style={styles.notificationItemCard}>
-                <View style={styles.notificationHeaderRow}>
-                  <Text style={styles.notificationItemTitle}>💰 Loan Limit Approved</Text>
-                  <Text style={styles.notificationTime}>Yesterday</Text>
+              )) : (
+                <View style={{ padding: 24, alignItems: 'center' }}>
+                  <Text style={{ color: '#8E8E93', fontSize: 14 }}>No notifications yet</Text>
                 </View>
-                <Text style={styles.notificationBody}>
-                  Pre-approved cash credit line of ₹50,000 is ready for instant disbursement. Get money in your bank account in 2 minutes.
-                </Text>
-              </View>
-
-              <View style={styles.notificationItemCard}>
-                <View style={styles.notificationHeaderRow}>
-                  <Text style={styles.notificationItemTitle}>✅ Registration Active</Text>
-                  <Text style={styles.notificationTime}>Oct 24</Text>
-                </View>
-                <Text style={styles.notificationBody}>
-                  Your verified selfie and storefront photos have been verified. Welcome to the VendorPASS credit network!
-                </Text>
-              </View>
+              )}
             </View>
           </View>
         </View>

@@ -209,3 +209,117 @@ drop publication if exists supabase_realtime cascade;
 create publication supabase_realtime;
 alter publication supabase_realtime add table public.profiles;
 alter publication supabase_realtime add table public.loan_offers;
+
+-- 16. Notifications Table
+create table public.notifications (
+  id uuid default gen_random_uuid() primary key,
+  user_id uuid references public.profiles(id) on delete cascade not null,
+  title text not null,
+  message text not null,
+  is_read boolean default false not null,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+grant all on table public.notifications to anon, authenticated;
+alter table public.notifications enable row level security;
+
+create policy "Users can view own notifications"
+on public.notifications for select to authenticated
+using ((select auth.uid()) = user_id);
+
+create policy "Users can update own notifications"
+on public.notifications for update to authenticated
+using ((select auth.uid()) = user_id)
+with check ((select auth.uid()) = user_id);
+
+create policy "Allow users to insert notifications"
+on public.notifications for insert to authenticated
+with check (true);
+
+alter publication supabase_realtime add table public.notifications;
+
+-- 17. Update loan_offers for tracking
+alter table public.loan_offers add column if not exists last_notified_month integer default 0;
+alter table public.loan_offers add column if not exists last_penalized_month integer default 0;
+
+-- 18. Process Overdue Loans Cron Function
+create extension if not exists pg_cron;
+
+create or replace function public.process_overdue_loans()
+returns void
+language plpgsql
+security definer
+as $$
+declare
+  offer record;
+  elapsed_demo_months integer;
+  paid_months integer;
+  emi_amount numeric;
+  total_loan numeric;
+  tenure_months integer;
+begin
+  for offer in 
+    select * from public.loan_offers 
+    where status = 'ACCEPTED' and accepted_at is not null
+  loop
+    -- Extract tenure safely
+    tenure_months := cast(nullif(regexp_replace(offer.tenure, '\D', '', 'g'), '') as integer);
+    if tenure_months is null or tenure_months = 0 then
+      tenure_months := 1;
+    end if;
+
+    -- Calculate total loan and EMI
+    total_loan := offer.amount + (offer.amount * (offer.interest_rate / 100.0));
+    emi_amount := total_loan / tenure_months;
+
+    -- Calculate times
+    elapsed_demo_months := floor(extract(epoch from (now() - offer.accepted_at)) / 300); -- 300s = 5 min
+    paid_months := floor(coalesce(offer.amount_paid, 0) / emi_amount);
+
+    -- Only check if they haven't fully paid
+    if coalesce(offer.amount_paid, 0) < total_loan then
+      
+      -- Severe Penalty (Missed entirely)
+      if elapsed_demo_months > paid_months + 1 and elapsed_demo_months > coalesce(offer.last_penalized_month, 0) then
+        
+        -- Deduct 50 points and add AI Narrative
+        update public.profiles 
+        set score = greatest(0, coalesce(score, 620) - 50),
+            trust_score_data = jsonb_build_object(
+              'last_updated', now(),
+              'narrative', 'Critical System Alert: Vendor completely missed an EMI payment window resulting in a 50 point TrustScore drop and Very High Risk classification.'
+            )
+        where id = offer.vendor_id;
+
+        -- Notify
+        insert into public.notifications (user_id, title, message)
+        values (offer.vendor_id, 'CRITICAL ALERT', 'You completely missed your EMI payment window. Your TrustScore dropped by 50 points.');
+
+        -- Update tracker
+        update public.loan_offers 
+        set last_penalized_month = elapsed_demo_months
+        where id = offer.id;
+
+      -- Friendly Reminder (Late)
+      elsif elapsed_demo_months > paid_months and elapsed_demo_months > coalesce(offer.last_notified_month, 0) then
+        
+        -- Notify
+        insert into public.notifications (user_id, title, message)
+        values (offer.vendor_id, 'Friendly Reminder', 'Your EMI is due! Please pay it to avoid TrustScore penalties.');
+
+        -- Update tracker
+        update public.loan_offers 
+        set last_notified_month = elapsed_demo_months
+        where id = offer.id;
+        
+      end if;
+
+    end if;
+  end loop;
+end;
+$$;
+
+-- Schedule the cron (runs every minute)
+select cron.schedule('process-overdue-loans-every-min', '* * * * *', $$
+  select public.process_overdue_loans();
+$$);
