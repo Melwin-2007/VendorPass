@@ -62,9 +62,15 @@ export function BottomTabBar({
         </Pressable>
       </View>
 
-      <Pressable style={styles.tabItem} onPress={onHistoryPress}>
-        <SymbolView tintColor="#8E8E93" name="receipt_long" size={22} />
-        <Text style={styles.inactiveTabText}>History</Text>
+      <Pressable style={styles.tabItem} onPress={onHistoryPress || (() => router.push('/history'))}>
+        {activeTab === 'history' ? (
+          <View style={styles.activeTabCircle}>
+            <SymbolView tintColor="#ffffff" name="receipt_long" size={22} />
+          </View>
+        ) : (
+          <SymbolView tintColor="#8E8E93" name="receipt_long" size={22} />
+        )}
+        <Text style={activeTab === 'history' ? styles.activeTabText : styles.inactiveTabText}>History</Text>
       </Pressable>
 
       <Pressable style={styles.tabItem} onPress={onAccountPress}>

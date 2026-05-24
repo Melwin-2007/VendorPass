@@ -79,7 +79,7 @@ export default function DashboardScreen() {
   });
 
   // Vendor Action Modals
-  const [ledgerModalVisible, setLedgerModalVisible] = useState(false);
+  const [lendersModalVisible, setLendersModalVisible] = useState(false);
   const [loanModalVisible, setLoanModalVisible] = useState(false);
   const [supplierModalVisible, setSupplierModalVisible] = useState(false);
   const [docsModalVisible, setDocsModalVisible] = useState(false);
@@ -87,14 +87,22 @@ export default function DashboardScreen() {
   const [notificationsModalVisible, setNotificationsModalVisible] = useState(false);
   const [accountModalVisible, setAccountModalVisible] = useState(false);
 
+  // Lenders data state
+  const [availableLenders, setAvailableLenders] = useState<any[]>([]);
+
   // Modal input states
-  const [saleAmount, setSaleAmount] = useState('');
-  const [saleDesc, setSaleDesc] = useState('');
   const [supplierName, setSupplierName] = useState('');
   
-  // Loan amount input states
+  // Loan proposal states
+  const [selectedLender, setSelectedLender] = useState<any>(null);
   const [loanAmount, setLoanAmount] = useState('50000');
-  const [loanTenure, setLoanTenure] = useState(3); // in months (3 or 6)
+  const [proposedInterest, setProposedInterest] = useState('12.5');
+  const [loanTenure, setLoanTenure] = useState(3); // in months (3, 6, 12)
+
+  // Real data lists
+  const [lenderOffers, setLenderOffers] = useState<any[]>([]);
+  const [walletTransactions, setWalletTransactions] = useState<any[]>([]);
+  const [walletBalance, setWalletBalance] = useState(0);
 
   // Local metrics state
   const [supplierCount, setSupplierCount] = useState(4);
@@ -159,55 +167,96 @@ export default function DashboardScreen() {
     return () => clearTimeout(timer);
   }, [currentScore]);
 
-  // Fetch dynamic vendor applicants from profiles database for Lender
+  // Fetch Wallet Transactions globally
+  useEffect(() => {
+    if (!user) return;
+    const fetchTransactions = async () => {
+      const { data, error } = await supabase
+        .from('wallet_transactions')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+
+      if (!error && data) {
+        setWalletTransactions(data);
+        const balance = data.reduce((acc, t) => t.type === 'ADD' ? acc + Number(t.amount) : acc - Number(t.amount), 0);
+        setWalletBalance(balance);
+      }
+    };
+
+    fetchTransactions();
+
+    const subscription = supabase
+      .channel(`wallet_changes_${Date.now()}_${Math.random()}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'wallet_transactions', filter: `user_id=eq.${user.id}` }, () => {
+        fetchTransactions();
+      })
+      .subscribe();
+      
+    return () => { supabase.removeChannel(subscription); };
+  }, [user]);
+
+  // Fetch dynamic lender offers for Lender
   useEffect(() => {
     if (user?.role === 'LENDER') {
       const fetchLenderData = async () => {
         const { data, error } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('role', 'VENDOR')
+          .from('loan_offers')
+          .select('*, profiles!loan_offers_vendor_id_fkey(name, selfie, score)')
+          .eq('lender_id', user.id)
           .order('created_at', { ascending: false });
 
         if (error) {
-          console.error('Error fetching vendor profiles:', error);
+          console.error('Error fetching loan offers:', error);
           return;
         }
 
-        if (data && data.length > 0) {
-          const mappedApplicants = data.map((profile) => {
-            // Risk evaluation based on TrustScore
-            let risk = 'High Risk';
-            if (profile.score >= 750) risk = 'Low Risk';
-            else if (profile.score >= 650) risk = 'Mid Risk';
-
-            // Limit amount calculation based on their TrustScore
-            const rawScore = profile.score || 600;
-            const amountVal = rawScore >= 750 ? 45000 : rawScore >= 650 ? 120000 : 15000;
-            const rateVal = rawScore >= 750 ? '12% p.a.' : rawScore >= 650 ? '14% p.a.' : '15% p.a.';
-
-            // Selfie check with proper default fallback
-            const defaultSelfie = 'https://lh3.googleusercontent.com/aida-public/AB6AXuAlgj-SJy7IHHN72FxR0ksw9nM_XrQpT4CDw_-cf7XWWW3dGev-D7RrwT5t01Jjh9SC4mPC4V72WbitqBuxaang7oo5_1RNOweXOjkLpUEQiI6VM9qNtBGbdtINFD_1tCcctKfd3S9YQXPcSyZOGjFNvmYK-I3Z1kWnVfeBtMZZfSRlX9Ixyo_i322Hmo4RCrCVfMZUl6pIdFZAF7AUYxALh1sSDJykFkLtVia9Fehqnn39siVkTBQ_F8WeSDNBCMApg9u7YLxNIXlV';
-
-            return {
-              id: profile.id,
-              name: profile.name || 'Anonymous Vendor',
-              score: rawScore,
-              amount: `₹${amountVal.toLocaleString('en-IN')}`,
-              rate: rateVal,
-              date: new Date(profile.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }),
-              risk: risk,
-              note: profile.score >= 750 ? 'Inventory for festival season sale' : 'Store expansion & renovation',
-              image: profile.selfie || defaultSelfie,
-            };
-          });
-          setApplicants(mappedApplicants);
+        if (data) {
+          setLenderOffers(data);
         }
       };
 
       fetchLenderData();
+
+      const subscription = supabase
+        .channel(`lender_offers_${Date.now()}_${Math.random()}`)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'loan_offers', filter: `lender_id=eq.${user.id}` }, () => {
+          fetchLenderData();
+        })
+        .subscribe();
+      return () => { supabase.removeChannel(subscription); };
     }
-  }, [user?.role]);
+  }, [user?.role, user?.id]);
+
+  // Fetch dynamic lender profiles and existing applications for Vendor
+  useEffect(() => {
+    if (user?.role === 'VENDOR') {
+      const fetchVendorData = async () => {
+        // 1. Fetch available lenders
+        const { data: lendersData, error: lendersError } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('role', 'LENDER')
+          .order('created_at', { ascending: false });
+
+        if (lendersError) {
+          console.error('Error fetching lender profiles:', lendersError);
+        } else if (lendersData) {
+          const mappedLenders = lendersData.map((profile) => ({
+            id: profile.id,
+            name: profile.name || 'Financial Partner',
+            rate: '12% - 15% p.a.',
+            maxAmount: '₹5,00,000',
+            image: profile.selfie || 'https://images.unsplash.com/photo-1560250097-0b93528c311a?q=80&w=200&auto=format&fit=crop',
+          }));
+          setAvailableLenders(mappedLenders);
+        }
+
+      };
+
+      fetchVendorData();
+    }
+  }, [user?.role, user?.id]);
 
   // Helper for showing a temporary toast notification
   const showToast = (message: string) => {
@@ -217,105 +266,38 @@ export default function DashboardScreen() {
     }, 3500);
   };
 
-  const handleRecordSale = async () => {
-    if (!user?.id || isCalculating) {
-      if (!user?.id) showToast('❌ User ID missing. Please refresh the app.');
+
+
+  const handleApplyLoan = async () => {
+    const amt = parseFloat(loanAmount.replace(/,/g, ''));
+    const intRate = parseFloat(proposedInterest) || 12.5;
+
+    if (isNaN(amt) || amt <= 0 || amt > 500000) {
+      showToast('❌ Please enter a valid amount');
       return;
     }
 
-    setIsCalculating(true);
-    
-    // Convert to number
-    const numericAmt = Number(saleAmount.replace(/[^0-9.-]+/g, ""));
-    if (isNaN(numericAmt)) {
-        setIsCalculating(false);
-        return;
-    }
+    if (!user?.id || !selectedLender?.id) return;
 
-    // Actually insert into Supabase
-    const { error: insertError } = await supabase.from('wallet_transactions').insert([{
-      user_id: user.id,
-      amount: numericAmt,
-      type: 'ADD',
-      description: saleDesc || 'Store Sale: UPI'
+    const { error } = await supabase.from('loan_offers').insert([{
+      vendor_id: user.id,
+      lender_id: selectedLender.id,
+      amount: amt,
+      interest_rate: intRate,
+      tenure: `${loanTenure} Months`,
+      status: 'PENDING'
     }]);
 
-    if (insertError) {
-      showToast('❌ Failed to record sale. Check connection.');
-      console.error("Sale insert error", insertError);
-      setIsCalculating(false);
-      return;
-    }
-
-    console.log("Successfully inserted transaction. Explicitly calling TrustScore engine...");
-
-    // Directly trigger the edge function so we don't have to rely on the Database Webhook
-    const { data: edgeData, error: edgeError } = await supabase.functions.invoke('calculate_trust_score', {
-      body: { record: { user_id: user.id } }
-    });
-
-    setIsCalculating(false);
-
-    if (edgeError) {
-      console.error("Edge Function Error:", edgeError);
-      showToast('⚠️ Sale recorded, but TrustScore engine failed to run.');
-    } else {
-      console.log("Edge Function Response:", edgeData);
-      if (edgeData?.parsedTrustScoreData) {
-        setLocalTrustScoreData(edgeData.parsedTrustScoreData);
-      }
-    }
-
-    const newActivity = {
-      id: Date.now().toString(),
-      type: 'SALE',
-      title: saleDesc || 'Store Sale: UPI',
-      date: 'Just now',
-      amount: `+ ₹${numericAmt.toLocaleString('en-IN')}`,
-      status: 'pending_verification',
-    };
-    setActivities([newActivity, ...activities]);
-    
-    // Also simulate updating metrics
-    setDailyAvg(prev => {
-      const prevAmt = parseFloat(prev.replace(/,/g, ''));
-      const newAvg = Math.round((prevAmt * activeDays + numericAmt) / (activeDays + 1));
-      return newAvg.toLocaleString('en-IN');
-    });
-    setActiveDays(d => d + 1);
-
-    setSaleAmount('');
-    setSaleDesc('');
-    setLedgerModalVisible(false);
-    showToast('🎉 Sale entry recorded successfully!');
-  };
-
-  const handleApplyLoan = () => {
-    const amt = parseFloat(loanAmount.replace(/,/g, ''));
-    if (isNaN(amt) || amt <= 0 || amt > 50000) {
-      showToast('❌ Please enter a valid amount up to ₹50,000');
-      return;
-    }
-
-    const newActivity = {
-      id: Date.now().toString(),
-      type: 'SALE',
-      title: 'Loan Disbursement',
-      date: 'Just now',
-      amount: `+ ₹${amt.toLocaleString('en-IN')}`,
-      status: 'verified',
-    };
-    setActivities([newActivity, ...activities]);
-
-    setDailyAvg(prev => {
-      const prevAmt = parseFloat(prev.replace(/,/g, ''));
-      const newAvg = Math.round((prevAmt * activeDays + amt) / (activeDays + 1));
-      return newAvg.toLocaleString('en-IN');
-    });
-    setActiveDays(d => d + 1);
-
     setLoanModalVisible(false);
-    showToast(`💰 ₹${amt.toLocaleString('en-IN')} disbursed to your bank account!`);
+    
+    if (error) {
+      console.error("Insert error", error);
+      showToast('❌ Failed to send proposal.');
+    } else {
+      const lenderName = selectedLender?.name || 'Lender';
+      showToast(`✅ Proposal sent to ${lenderName}!`);
+    }
+    setSelectedLender(null);
   };
 
   const handleLinkSupplier = () => {
@@ -335,9 +317,40 @@ export default function DashboardScreen() {
     showToast(`🔗 Linked to ${supplierName} successfully!`);
   };
 
-  const handleApproveCredit = (id: string) => {
-    setApplicants(applicants.filter((app) => app.id !== id));
+  const handleApproveCredit = async (id: string, amount: number, vendorId: string) => {
+    if (!user) return;
+    const { error } = await supabase.from('loan_offers').update({ status: 'ACCEPTED' }).eq('id', id);
+    if (error) {
+      showToast('❌ Failed to approve loan.');
+    } else {
+      // 1. Send transaction for Lender
+      await supabase.from('wallet_transactions').insert({
+        user_id: user.id,
+        amount: amount,
+        type: 'SEND',
+        description: 'Loan Disbursement'
+      });
+      // 2. Add transaction for Vendor
+      await supabase.from('wallet_transactions').insert({
+        user_id: vendorId,
+        amount: amount,
+        type: 'ADD',
+        description: 'Loan Received'
+      });
+      showToast('✅ Loan approved & disbursed!');
+    }
   };
+
+  const handleDeclineCredit = async (id: string) => {
+    const { error } = await supabase.from('loan_offers').update({ status: 'DECLINED' }).eq('id', id);
+    if (error) {
+      showToast('❌ Failed to decline loan.');
+    } else {
+      showToast('ℹ️ Loan application declined.');
+    }
+  };
+
+
 
   const renderVendorDashboard = () => {
     // Standing and Color calculations based on currentScore
@@ -449,8 +462,8 @@ export default function DashboardScreen() {
           {/* Stats Row */}
           <View style={styles.heroStatsRow}>
             <View style={styles.heroStatItem}>
-              <Text style={styles.heroStatLabel}>DAILY AVG</Text>
-              <Text style={styles.heroStatValue}>₹{dailyAvg}</Text>
+              <Text style={styles.heroStatLabel}>WALLET BALANCE</Text>
+              <Text style={styles.heroStatValue}>₹{walletBalance.toLocaleString('en-IN')}</Text>
             </View>
             <View style={[styles.heroStatItem, { alignItems: 'center' }]}>
               <Text style={styles.heroStatLabel}>ACTIVE DAYS</Text>
@@ -464,19 +477,7 @@ export default function DashboardScreen() {
         </LinearGradient>
 
 
-        {/* Pre-Approved Loan Banner */}
-        <View style={styles.loanBanner}>
-          <View>
-            <Text style={styles.loanBannerSubtitle}>Pre-Approved Limit</Text>
-            <Text style={styles.loanBannerTitle}>Eligible for ₹50,000</Text>
-          </View>
-          <Pressable 
-            onPress={() => setLoanModalVisible(true)}
-            style={({ pressed }) => [styles.loanBannerBtn, { opacity: pressed ? 0.8 : 1 }]}
-          >
-            <Text style={styles.loanBannerBtnText}>Check Offer →</Text>
-          </Pressable>
-        </View>
+
 
         {/* Recent Activity Section */}
         <View style={styles.activityHeaderRow}>
@@ -487,26 +488,27 @@ export default function DashboardScreen() {
         </View>
 
         <View style={styles.activityListContainer}>
-          {activities.map((item) => {
-            const actStyle = getActivityStyle(item.title, item.amount);
-            const isPositive = item.amount.startsWith('+');
+          {walletTransactions.length > 0 ? walletTransactions.map((item) => {
+            const isPositive = item.type === 'ADD';
             return (
               <View key={item.id} style={styles.activityCard}>
                 <View style={styles.activityLeft}>
-                  <View style={[styles.activityIconContainer, { backgroundColor: actStyle.iconBg }]}>
-                    <SymbolView tintColor={actStyle.iconColor} name={actStyle.icon} size={20} />
+                  <View style={[styles.activityIconContainer, { backgroundColor: isPositive ? '#E8F6F3' : '#F9EBEA' }]}>
+                    <SymbolView tintColor={isPositive ? '#2D7D46' : '#C0392B'} name={isPositive ? 'arrow.down' : 'arrow.up'} size={20} />
                   </View>
                   <View>
-                    <Text style={styles.activityItemTitle}>{item.title}</Text>
-                    <Text style={styles.activityItemDate}>{item.date}</Text>
+                    <Text style={styles.activityItemTitle}>{item.description || item.type}</Text>
+                    <Text style={styles.activityItemDate}>{new Date(item.created_at).toLocaleDateString()}</Text>
                   </View>
                 </View>
                 <Text style={[styles.activityItemAmount, { color: isPositive ? '#2D7D46' : '#C0392B' }]}>
-                  {item.amount}
+                  {isPositive ? '+' : '-'} ₹{Number(item.amount).toLocaleString('en-IN')}
                 </Text>
               </View>
             );
-          })}
+          }) : (
+            <Text style={{ textAlign: 'center', color: '#A0A0A0', marginVertical: 20 }}>No transactions yet.</Text>
+          )}
         </View>
 
         {/* AI Insight Section */}
@@ -625,6 +627,15 @@ export default function DashboardScreen() {
   };
 
   const renderLenderDashboard = () => {
+    const acceptedOffers = lenderOffers.filter(o => o.status === 'ACCEPTED');
+    const pendingOffers = lenderOffers.filter(o => o.status === 'PENDING');
+    
+    const totalCapital = acceptedOffers.reduce((sum, o) => sum + Number(o.amount), 0);
+    const activeLoansCount = acceptedOffers.length;
+    const avgReturn = activeLoansCount > 0 
+      ? (acceptedOffers.reduce((sum, o) => sum + Number(o.interest_rate), 0) / activeLoansCount).toFixed(1)
+      : '0.0';
+
     return (
       <View style={styles.lenderDashboardContainer}>
         {/* Hero Portfolio Card */}
@@ -638,7 +649,7 @@ export default function DashboardScreen() {
             <Text style={styles.lenderHeroLabel}>TOTAL CAPITAL DEPLOYED</Text>
             <View style={styles.lenderHeroAmountRow}>
               <Text style={styles.lenderHeroCurrency}>₹</Text>
-              <Text style={styles.lenderHeroValue}>4,85,000</Text>
+              <Text style={styles.lenderHeroValue}>{totalCapital.toLocaleString('en-IN')}</Text>
             </View>
 
             <View style={styles.lenderHeroDivider} />
@@ -646,15 +657,15 @@ export default function DashboardScreen() {
             <View style={styles.lenderHeroStatsRow}>
               <View style={styles.lenderHeroStatItem}>
                 <Text style={styles.lenderHeroStatLabel}>ACTIVE LOANS</Text>
-                <Text style={styles.lenderHeroStatValue}>12</Text>
+                <Text style={styles.lenderHeroStatValue}>{activeLoansCount}</Text>
               </View>
               <View style={styles.lenderHeroStatItem}>
                 <Text style={styles.lenderHeroStatLabel}>AVG RETURN</Text>
-                <Text style={[styles.lenderHeroStatValue, { color: '#ffb86b' }]}>18.4%</Text>
+                <Text style={[styles.lenderHeroStatValue, { color: '#ffb86b' }]}>{avgReturn}%</Text>
               </View>
               <View style={styles.lenderHeroStatItem}>
-                <Text style={styles.lenderHeroStatLabel}>REPAYMENT</Text>
-                <Text style={styles.lenderHeroStatValue}>94%</Text>
+                <Text style={styles.lenderHeroStatLabel}>WALLET BALANCE</Text>
+                <Text style={styles.lenderHeroStatValue}>₹{(walletBalance || 0).toLocaleString('en-IN')}</Text>
               </View>
             </View>
 
@@ -720,7 +731,7 @@ export default function DashboardScreen() {
             <View style={styles.lenderSectionTitleRow}>
               <Text style={styles.lenderSectionTitle}>Awaiting Your Decision</Text>
               <View style={styles.lenderBadge}>
-                <Text style={styles.lenderBadgeText}>{applicants.length}</Text>
+                <Text style={styles.lenderBadgeText}>{pendingOffers.length}</Text>
               </View>
             </View>
             <Pressable onPress={() => showToast('Viewing all pending applications.')}>
@@ -729,54 +740,48 @@ export default function DashboardScreen() {
           </View>
 
           {/* Swipeable cards list */}
-          {applicants.length > 0 ? (
+          {pendingOffers.length > 0 ? (
             <ScrollView 
               horizontal 
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={styles.lenderCardsScroll}
             >
-              {applicants.map((item) => (
+              {pendingOffers.map((item) => (
                 <View key={item.id} style={styles.lenderCard}>
                   <View style={styles.lenderCardTop}>
                     <View style={styles.lenderCardUser}>
                       <Image
                         style={styles.lenderCardAvatar}
-                        source={{ uri: item.image }}
+                        source={{ uri: item.profiles?.selfie || 'https://images.unsplash.com/photo-1560250097-0b93528c311a?q=80&w=200&auto=format&fit=crop' }}
                       />
                       <View>
-                        <Text style={styles.lenderCardName}>{item.name}</Text>
+                        <Text style={styles.lenderCardName}>{item.profiles?.name || 'Vendor'}</Text>
                         <View style={styles.lenderCardTrustRow}>
                           <SymbolView name="verified_user" size={12} tintColor="#2D7D46" />
-                          <Text style={styles.lenderCardTrustText}>TrustScore {item.score}</Text>
+                          <Text style={styles.lenderCardTrustText}>TrustScore {item.profiles?.score || 600}</Text>
                         </View>
                       </View>
                     </View>
-                    <View style={[
-                      styles.lenderRiskBadge,
-                      item.risk === 'Low Risk' ? styles.lenderRiskLow : styles.lenderRiskMid
-                    ]}>
-                      <Text style={[
-                        styles.lenderRiskText,
-                        item.risk === 'Low Risk' ? { color: '#2D7D46' } : { color: '#835500' }
-                      ]}>{item.risk}</Text>
+                    <View style={[styles.lenderRiskBadge, styles.lenderRiskLow]}>
+                      <Text style={[styles.lenderRiskText, { color: '#2D7D46' }]}>Low Risk</Text>
                     </View>
                   </View>
 
                   <View style={styles.lenderCardDetails}>
                     <Text style={styles.lenderCardDetailsLabel}>REQUESTING</Text>
-                    <Text style={styles.lenderCardDetailsAmount}>{item.amount}</Text>
-                    <Text style={styles.lenderCardDetailsNote}>&quot;{item.note}&quot;</Text>
+                    <Text style={styles.lenderCardDetailsAmount}>₹{Number(item.amount).toLocaleString('en-IN')}</Text>
+                    <Text style={styles.lenderCardDetailsNote}>{item.tenure} @ {item.interest_rate}% p.a.</Text>
                   </View>
 
                   <View style={styles.lenderCardActions}>
                     <Pressable 
-                      onPress={() => handleApproveCredit(item.id)}
+                      onPress={() => handleDeclineCredit(item.id)}
                       style={styles.lenderDeclineBtn}
                     >
                       <Text style={styles.lenderDeclineBtnText}>DECLINE</Text>
                     </Pressable>
                     <Pressable 
-                      onPress={() => handleApproveCredit(item.id)}
+                      onPress={() => handleApproveCredit(item.id, Number(item.amount), item.vendor_id)}
                       style={styles.lenderApproveBtn}
                     >
                       <Text style={styles.lenderApproveBtnText}>APPROVE</Text>
@@ -788,7 +793,7 @@ export default function DashboardScreen() {
           ) : (
             <View style={styles.lenderEmptyCard}>
               <SymbolView name="checkmark.circle" size={40} tintColor="#6B6B6B" />
-              <Text style={styles.lenderEmptyText}>All applications reviewed!</Text>
+              <Text style={styles.lenderEmptyText}>No pending applications right now.</Text>
             </View>
           )}
         </View>
@@ -801,95 +806,46 @@ export default function DashboardScreen() {
           </View>
 
           <View style={styles.lenderActiveFeed}>
-            {/* Loan Row 1 */}
-            <View style={styles.lenderActiveCard}>
-              <View style={styles.lenderActiveCardTop}>
-                <View style={styles.lenderActiveIconRow}>
-                  <View style={styles.lenderActiveIconBg}>
-                    <SymbolView name="storefront" size={20} tintColor="#446274" />
+            {acceptedOffers.length > 0 ? (
+              acceptedOffers.map((loan, index) => {
+                const emi = Math.round((Number(loan.amount) * (1 + Number(loan.interest_rate) / 100)) / parseInt(loan.tenure));
+                return (
+                  <View key={loan.id} style={styles.lenderActiveCard}>
+                    <View style={styles.lenderActiveCardTop}>
+                      <View style={styles.lenderActiveIconRow}>
+                        <View style={styles.lenderActiveIconBg}>
+                          <Image source={{ uri: loan.profiles?.selfie || 'https://images.unsplash.com/photo-1560250097-0b93528c311a?q=80&w=200&auto=format&fit=crop' }} style={{ width: 40, height: 40, borderRadius: 20 }} />
+                        </View>
+                        <View style={{ marginLeft: 8 }}>
+                          <Text style={styles.lenderActiveName}>{loan.profiles?.name || 'Vendor'}</Text>
+                          <Text style={styles.lenderActiveDue}>EMI: ₹{emi.toLocaleString('en-IN')}/mo</Text>
+                        </View>
+                      </View>
+                      <View style={styles.lenderActiveRight}>
+                        <Text style={styles.lenderActiveAmount}>₹{Number(loan.amount).toLocaleString('en-IN')}</Text>
+                        <View style={styles.lenderActiveBadgeGreen}>
+                          <Text style={styles.lenderActiveBadgeTextGreen}>ON TRACK</Text>
+                        </View>
+                      </View>
+                    </View>
+                    <View style={styles.lenderProgressContainer}>
+                      <View style={styles.lenderProgressLabelRow}>
+                        <Text style={styles.lenderProgressLabel}>{loan.tenure.toUpperCase()}</Text>
+                        <Text style={styles.lenderProgressLabel}>NEW</Text>
+                      </View>
+                      <View style={styles.lenderProgressBarBg}>
+                        <View style={[styles.lenderProgressBarFill, { width: '10%', backgroundColor: '#2D7D46' }]} />
+                      </View>
+                    </View>
                   </View>
-                  <View>
-                    <Text style={styles.lenderActiveName}>Krishna General Store</Text>
-                    <Text style={styles.lenderActiveDue}>EMI Due: Oct 12 • ₹4,200</Text>
-                  </View>
-                </View>
-                <View style={styles.lenderActiveRight}>
-                  <Text style={styles.lenderActiveAmount}>₹42,000</Text>
-                  <View style={styles.lenderActiveBadgeGreen}>
-                    <Text style={styles.lenderActiveBadgeTextGreen}>ON TRACK</Text>
-                  </View>
-                </View>
+                );
+              })
+            ) : (
+              <View style={styles.lenderEmptyCard}>
+                <SymbolView name="inventory_2" size={40} tintColor="#6B6B6B" />
+                <Text style={styles.lenderEmptyText}>No active loans found.</Text>
               </View>
-              <View style={styles.lenderProgressContainer}>
-                <View style={styles.lenderProgressLabelRow}>
-                  <Text style={styles.lenderProgressLabel}>8 / 12 INSTALLMENTS</Text>
-                  <Text style={styles.lenderProgressLabel}>65% PAID</Text>
-                </View>
-                <View style={styles.lenderProgressBarBg}>
-                  <View style={[styles.lenderProgressBarFill, { width: '65%', backgroundColor: '#2D7D46' }]} />
-                </View>
-              </View>
-            </View>
-
-            {/* Loan Row 2 */}
-            <View style={styles.lenderActiveCard}>
-              <View style={styles.lenderActiveCardTop}>
-                <View style={styles.lenderActiveIconRow}>
-                  <View style={styles.lenderActiveIconBg}>
-                    <SymbolView name="local_shipping" size={20} tintColor="#446274" />
-                  </View>
-                  <View>
-                    <Text style={styles.lenderActiveName}>S.K. Logistics</Text>
-                    <Text style={styles.lenderActiveDue}>EMI Due: Oct 15 • ₹12,500</Text>
-                  </View>
-                </View>
-                <View style={styles.lenderActiveRight}>
-                  <Text style={styles.lenderActiveAmount}>₹2,50,000</Text>
-                  <View style={styles.lenderActiveBadgeOrange}>
-                    <Text style={styles.lenderActiveBadgeTextOrange}>UPCOMING</Text>
-                  </View>
-                </View>
-              </View>
-              <View style={styles.lenderProgressContainer}>
-                <View style={styles.lenderProgressLabelRow}>
-                  <Text style={styles.lenderProgressLabel}>2 / 24 INSTALLMENTS</Text>
-                  <Text style={styles.lenderProgressLabel}>8% PAID</Text>
-                </View>
-                <View style={styles.lenderProgressBarBg}>
-                  <View style={[styles.lenderProgressBarFill, { width: '8%', backgroundColor: '#895100' }]} />
-                </View>
-              </View>
-            </View>
-
-            {/* Loan Row 3 */}
-            <View style={[styles.lenderActiveCard, { borderLeftWidth: 4, borderLeftColor: '#C0392B' }]}>
-              <View style={styles.lenderActiveCardTop}>
-                <View style={styles.lenderActiveIconRow}>
-                  <View style={[styles.lenderActiveIconBg, { backgroundColor: 'rgba(192, 57, 43, 0.1)' }]}>
-                    <SymbolView name="warning" size={20} tintColor="#C0392B" />
-                  </View>
-                  <View>
-                    <Text style={styles.lenderActiveName}>Anita Boutique</Text>
-                    <Text style={[styles.lenderActiveDue, { color: '#C0392B' }]}>Overdue by 3 Days • ₹2,100</Text>
-                  </View>
-                </View>
-                <View style={styles.lenderActiveRight}>
-                  <Text style={styles.lenderActiveAmount}>₹15,000</Text>
-                  <View style={styles.lenderActiveBadgeRed}>
-                    <Text style={styles.lenderActiveBadgeTextRed}>AT RISK</Text>
-                  </View>
-                </View>
-              </View>
-              <View style={styles.lenderProgressContainer}>
-                <View style={styles.lenderProgressLabelRow}>
-                  <Text style={styles.lenderProgressLabel}>10 / 12 INSTALLMENTS</Text>
-                  <Text style={styles.lenderProgressLabel}>83% PAID</Text>
-                </View>
-                <View style={styles.lenderProgressBarBg}>
-                  <View style={[styles.lenderProgressBarFill, { width: '83%', backgroundColor: '#C0392B' }]} />
-                </View>
-              </View>
-            </View>
+            )}
           </View>
         </View>
 
@@ -940,63 +896,66 @@ export default function DashboardScreen() {
         <BottomTabBar 
           activeTab="home"
           userRole={user?.role}
-          onCenterPress={() => setLedgerModalVisible(true)}
-          onHistoryPress={() => setNotificationsModalVisible(true)}
+          onCenterPress={() => setLendersModalVisible(true)}
+
           onAccountPress={() => setAccountModalVisible(true)}
         />
       )}
 
       {/* -------------------- MODALS -------------------- */}
 
-      {/* 1. Record Sale Modal */}
+      {/* 1. Available Lenders Modal */}
       <Modal
-        visible={ledgerModalVisible}
+        visible={lendersModalVisible}
         animationType="slide"
         transparent
-        onRequestClose={() => setLedgerModalVisible(false)}
+        onRequestClose={() => setLendersModalVisible(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.modalCardContainer}>
+          <View style={[styles.modalCardContainer, { maxHeight: '80%' }]}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitleText}>Record Sale Entry</Text>
-              <Pressable onPress={() => setLedgerModalVisible(false)} style={styles.modalCloseBtn}>
+              <Text style={styles.modalTitleText}>Available Lenders</Text>
+              <Pressable onPress={() => setLendersModalVisible(false)} style={styles.modalCloseBtn}>
                 <SymbolView tintColor="#1c1c18" name="xmark" size={20} />
               </Pressable>
             </View>
             
-            <Text style={styles.inputLabel}>SALE AMOUNT (₹)</Text>
-            <TextInput
-              style={styles.customModalInput}
-              placeholder="Enter amount, e.g. 1500"
-              placeholderTextColor="#A0A0A0"
-              keyboardType="numeric"
-              value={saleAmount}
-              onChangeText={setSaleAmount}
-            />
-            
-            <Text style={styles.inputLabel}>DESCRIPTION / NOTES</Text>
-            <TextInput
-              style={styles.customModalInput}
-              placeholder="e.g. Store Sale: UPI or Cash items"
-              placeholderTextColor="#A0A0A0"
-              value={saleDesc}
-              onChangeText={setSaleDesc}
-            />
-            
-            <TouchableOpacity 
-              style={[styles.modalPrimaryBtn, isCalculating && { opacity: 0.7 }]} 
-              onPress={handleRecordSale}
-              disabled={isCalculating}
-            >
-              <Text style={styles.modalPrimaryBtnText}>
-                {isCalculating ? 'AI is calculating...' : 'Save Entry'}
-              </Text>
-            </TouchableOpacity>
+            {availableLenders.length > 0 ? (
+              <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 24 }}>
+                {availableLenders.map((lender) => (
+                  <View key={lender.id} style={styles.lenderListCard}>
+                    <View style={styles.lenderListCardTop}>
+                      <Image source={{ uri: lender.image }} style={styles.lenderListAvatar} />
+                      <View style={{ flex: 1, marginLeft: 12 }}>
+                        <Text style={styles.lenderListName}>{lender.name}</Text>
+                        <Text style={styles.lenderListSub}>Max Limit: {lender.maxAmount}</Text>
+                        <Text style={styles.lenderListSub}>Rates: {lender.rate}</Text>
+                      </View>
+                    </View>
+                    <TouchableOpacity 
+                      style={styles.lenderListApplyBtn}
+                      onPress={() => {
+                        setSelectedLender(lender);
+                        setLendersModalVisible(false);
+                        setTimeout(() => setLoanModalVisible(true), 300);
+                      }}
+                    >
+                      <Text style={styles.lenderListApplyBtnText}>Apply Now</Text>
+                    </TouchableOpacity>
+                  </View>
+                ))}
+              </ScrollView>
+            ) : (
+              <View style={styles.lenderEmptyCard}>
+                <SymbolView name="business" size={40} tintColor="#6B6B6B" />
+                <Text style={styles.lenderEmptyText}>No lenders available right now.</Text>
+              </View>
+            )}
           </View>
         </View>
       </Modal>
 
-      {/* 2. Apply Loan Modal */}
+      {/* 2. Submit Proposal Modal */}
       <Modal
         visible={loanModalVisible}
         animationType="slide"
@@ -1006,18 +965,13 @@ export default function DashboardScreen() {
         <View style={styles.modalOverlay}>
           <View style={styles.modalCardContainer}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitleText}>Apply Loan</Text>
+              <Text style={styles.modalTitleText}>Proposal to {selectedLender?.name?.split(' ')[0] || 'Lender'}</Text>
               <Pressable onPress={() => setLoanModalVisible(false)} style={styles.modalCloseBtn}>
                 <SymbolView tintColor="#1c1c18" name="xmark" size={20} />
               </Pressable>
             </View>
 
-            <Text style={styles.inputLabel}>LOAN AMOUNT ELIGIBILITY</Text>
-            <View style={styles.preApprovedBadge}>
-              <Text style={styles.preApprovedBadgeText}>Pre-Approved Limit: ₹50,000</Text>
-            </View>
-
-            <Text style={styles.inputLabel}>ENTER LOAN AMOUNT (₹)</Text>
+            <Text style={styles.inputLabel}>REQUESTED LOAN AMOUNT (₹)</Text>
             <TextInput
               style={styles.customModalInput}
               placeholder="e.g. 50000"
@@ -1027,21 +981,35 @@ export default function DashboardScreen() {
               onChangeText={setLoanAmount}
             />
 
+            <Text style={styles.inputLabel}>PROPOSED INTEREST RATE (% p.a.)</Text>
+            <TextInput
+              style={styles.customModalInput}
+              placeholder="e.g. 12.5"
+              placeholderTextColor="#A0A0A0"
+              keyboardType="numeric"
+              value={proposedInterest}
+              onChangeText={setProposedInterest}
+            />
+
             <Text style={styles.inputLabel}>SELECT TENURE</Text>
             <View style={styles.tenureRow}>
               <Pressable 
                 onPress={() => setLoanTenure(3)}
                 style={[styles.tenureOption, loanTenure === 3 && styles.tenureOptionActive]}
               >
-                <Text style={[styles.tenureOptionText, loanTenure === 3 && styles.tenureOptionTextActive]}>3 Months</Text>
-                <Text style={[styles.tenureSubtext, loanTenure === 3 && styles.tenureSubtextActive]}>@ 12% p.a.</Text>
+                <Text style={[styles.tenureOptionText, loanTenure === 3 && styles.tenureOptionTextActive]}>3 Mo</Text>
               </Pressable>
               <Pressable 
                 onPress={() => setLoanTenure(6)}
                 style={[styles.tenureOption, loanTenure === 6 && styles.tenureOptionActive]}
               >
-                <Text style={[styles.tenureOptionText, loanTenure === 6 && styles.tenureOptionTextActive]}>6 Months</Text>
-                <Text style={[styles.tenureSubtext, loanTenure === 6 && styles.tenureSubtextActive]}>@ 12% p.a.</Text>
+                <Text style={[styles.tenureOptionText, loanTenure === 6 && styles.tenureOptionTextActive]}>6 Mo</Text>
+              </Pressable>
+              <Pressable 
+                onPress={() => setLoanTenure(12)}
+                style={[styles.tenureOption, loanTenure === 12 && styles.tenureOptionActive]}
+              >
+                <Text style={[styles.tenureOptionText, loanTenure === 12 && styles.tenureOptionTextActive]}>12 Mo</Text>
               </Pressable>
             </View>
 
@@ -1050,23 +1018,23 @@ export default function DashboardScreen() {
               <View style={styles.repaymentSummaryRow}>
                 <Text style={styles.repaymentDetailLabel}>Monthly EMI</Text>
                 <Text style={styles.repaymentDetailVal}>
-                  ₹{loanTenure === 3 ? '16,995' : '8,625'} / mo
+                  ₹{Math.round((parseFloat(loanAmount) || 0) * (1 + (parseFloat(proposedInterest) || 0) / 100) / loanTenure).toLocaleString('en-IN')} / mo
                 </Text>
               </View>
               <View style={styles.repaymentSummaryRow}>
                 <Text style={styles.repaymentDetailLabel}>Total Payback</Text>
                 <Text style={styles.repaymentDetailVal}>
-                  ₹{loanTenure === 3 ? '50,985' : '51,750'}
+                  ₹{Math.round((parseFloat(loanAmount) || 0) * (1 + (parseFloat(proposedInterest) || 0) / 100)).toLocaleString('en-IN')}
                 </Text>
               </View>
             </View>
 
             <Text style={styles.disbursementTargetText}>
-              Disbursing directly to SBI Account (Ending in **** 4321)
+              By submitting this proposal, the lender will review your profile.
             </Text>
 
             <Pressable style={styles.modalPrimaryBtn} onPress={handleApplyLoan}>
-              <Text style={styles.modalPrimaryBtnText}>Confirm & Disburse</Text>
+              <Text style={styles.modalPrimaryBtnText}>Submit Proposal</Text>
             </Pressable>
           </View>
         </View>
@@ -1273,6 +1241,7 @@ export default function DashboardScreen() {
           </View>
         </View>
       </Modal>
+
 
       {/* 8. Account Modal */}
       <Modal
@@ -3039,6 +3008,50 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: 'bold',
     color: '#C0392B',
+    fontFamily: Platform.OS === 'web' ? 'Sora' : 'sans-serif',
+  },
+  lenderListCard: {
+    backgroundColor: '#F9F5EF',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#E8E0D5',
+  },
+  lenderListCardTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  lenderListAvatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    borderWidth: 2,
+    borderColor: '#D4820A',
+  },
+  lenderListName: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#1c1c18',
+    marginBottom: 4,
+    fontFamily: Platform.OS === 'web' ? 'Sora' : 'sans-serif',
+  },
+  lenderListSub: {
+    fontSize: 12,
+    color: '#6B6B6B',
+    fontFamily: Platform.OS === 'web' ? 'DM Sans' : 'sans-serif',
+  },
+  lenderListApplyBtn: {
+    backgroundColor: '#D4820A',
+    borderRadius: 12,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  lenderListApplyBtnText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 14,
     fontFamily: Platform.OS === 'web' ? 'Sora' : 'sans-serif',
   },
 });

@@ -312,7 +312,7 @@ function LenderBrowseScreen() {
     fetchUserData();
 
     const channel = supabase
-      .channel('lender-profiles-changes')
+      .channel(`lender-profiles-changes_${Date.now()}_${Math.random()}`)
       .on(
         'postgres_changes',
         { event: 'UPDATE', schema: 'public', table: 'profiles' },
