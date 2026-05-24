@@ -25,7 +25,7 @@ interface AuthContextType {
   loading: boolean;
   signIn: (email: string, password: string) => Promise<boolean>;
   selectRole: (role: UserRole) => void;
-  signUp: (profile: Omit<UserProfile, 'role' | 'score'>, password?: string) => Promise<boolean>;
+  signUp: (profile: Omit<UserProfile, 'id' | 'role' | 'score'>, password?: string) => Promise<boolean>;
   completeOtp: (otp: string) => Promise<boolean>;
   signOut: () => void;
   setSignupProgress: (progress: number) => void;
@@ -38,7 +38,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<UserProfile | null>(null);
   const [selectedSignupRole, setSelectedSignupRole] = useState<UserRole | null>(null);
   const [signupProgress, setSignupProgress] = useState<number>(0.2); // step progress indicator
-  const [tempProfile, setTempProfile] = useState<Omit<UserProfile, 'role' | 'score'> | null>(null);
+  const [tempProfile, setTempProfile] = useState<Omit<UserProfile, 'id' | 'role' | 'score'> | null>(null);
   const [tempPassword, setTempPassword] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -140,7 +140,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setSignupProgress(0.5);
   };
 
-  const signUp = async (profile: Omit<UserProfile, 'role' | 'score'>, password?: string): Promise<boolean> => {
+  const signUp = async (profile: Omit<UserProfile, 'id' | 'role' | 'score'>, password?: string): Promise<boolean> => {
     setLoading(true);
     const { error } = await supabase.auth.signUp({
       email: profile.email,

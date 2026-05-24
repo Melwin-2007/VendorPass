@@ -55,6 +55,8 @@ const ICON_MAPPING: Record<string, { set: 'Ionicons' | 'Feather' | 'FontAwesome'
   'arrow.up.circle.fill': { set: 'Ionicons', name: 'arrow-up-circle' },
   'arrow.up.right.square': { set: 'Ionicons', name: 'open-outline' },
   'link': { set: 'Ionicons', name: 'link-outline' },
+  'bookmark': { set: 'Ionicons', name: 'bookmark-outline' },
+  'bookmark.fill': { set: 'Ionicons', name: 'bookmark' },
 
   // Roles & Custom UI
   'arrow.up': { set: 'Ionicons', name: 'arrow-up-outline' },

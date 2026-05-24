@@ -8,7 +8,6 @@ import {
   Platform,
   TextInput,
   Image,
-  TouchableOpacity,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/hooks/use-theme';
@@ -17,7 +16,6 @@ import { SymbolView } from '@/components/symbol-view';
 import { router } from 'expo-router';
 import { useAuth } from '@/context/auth';
 import { supabase } from '@/lib/supabase';
-import Svg, { Path } from 'react-native-svg';
 
 // -------------------- VENDOR CREDIT HUB SCREEN --------------------
 function VendorCreditHubScreen() {
@@ -179,6 +177,7 @@ interface Opportunity {
   interest: string;
   image: string;
   avatars: string[];
+  funding_status?: string;
 }
 
 const defaultOpportunities: Opportunity[] = [
@@ -229,11 +228,13 @@ const defaultOpportunities: Opportunity[] = [
 ];
 
 function LenderBrowseScreen() {
-  const { user } = useAuth();
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedFilter, setSelectedFilter] = useState('Near Me');
   const [opportunities, setOpportunities] = useState<Opportunity[]>(defaultOpportunities);
+  const [watchlists, setWatchlists] = useState<string[]>([]);
+  const [loanOffers, setLoanOffers] = useState<string[]>([]);
+  const { user } = useAuth();
 
   const showToast = (message: string) => {
     setToastMessage(message);
@@ -276,7 +277,8 @@ function LenderBrowseScreen() {
             note: rawScore >= 750 ? 'inventory expansion for the festive season' : 'spare parts inventory',
             interest: rawScore >= 750 ? '4 Lenders interested' : 'High yield potential',
             image: profile.selfie || 'https://lh3.googleusercontent.com/aida-public/AB6AXuAlgj-SJy7IHHN72FxR0ksw9nM_XrQpT4CDw_-cf7XWWW3dGev-D7RrwT5t01Jjh9SC4mPC4V72WbitqBuxaang7oo5_1RNOweXOjkLpUEQiI6VM9qNtBGbdtINFD_1tCcctKfd3S9YQXPcSyZOGjFNvmYK-I3Z1kWnVfeBtMZZfSRlX9Ixyo_i322Hmo4RCrCVfMZUl6pIdFZAF7AUYxALh1sSDJykFkLtVia9Fehqnn39siVkTBQ_F8WeSDNBCMApg9u7YLxNIXlV',
-            avatars: []
+            avatars: [],
+            funding_status: profile.funding_status || 'LOOKING_FOR_FUNDS'
           };
         });
 
@@ -292,7 +294,74 @@ function LenderBrowseScreen() {
     };
 
     fetchVendors();
-  }, []);
+
+    const fetchUserData = async () => {
+      if (!user) return;
+      const [watchRes, offerRes] = await Promise.all([
+        supabase.from('watchlists').select('vendor_id').eq('lender_id', user.id),
+        supabase.from('loan_offers').select('vendor_id').eq('lender_id', user.id)
+      ]);
+      
+      if (watchRes.data) {
+        setWatchlists(watchRes.data.map(w => w.vendor_id));
+      }
+      if (offerRes.data) {
+        setLoanOffers(offerRes.data.map(o => o.vendor_id));
+      }
+    };
+    fetchUserData();
+
+    const channel = supabase
+      .channel('lender-profiles-changes')
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'profiles' },
+        (payload) => {
+          setOpportunities((prev) => 
+            prev.map(opp => 
+              opp.id === payload.new.id 
+                ? { ...opp, funding_status: payload.new.funding_status } 
+                : opp
+            )
+          );
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user]);
+
+  const handleToggleWatchlist = async (oppId: string) => {
+    if (!user) return;
+    const isSaved = watchlists.includes(oppId);
+    if (isSaved) {
+      await supabase.from('watchlists').delete().eq('lender_id', user.id).eq('vendor_id', oppId);
+      setWatchlists(prev => prev.filter(id => id !== oppId));
+      showToast('Removed from Watchlist');
+    } else {
+      await supabase.from('watchlists').insert({ lender_id: user.id, vendor_id: oppId });
+      setWatchlists(prev => [...prev, oppId]);
+      showToast('Added to Watchlist');
+    }
+  };
+
+  const handleSendOffer = async (oppId: string, amount: string) => {
+    if (!user) return;
+    const numericAmount = parseInt(amount.replace(/[^0-9]/g, '')) || 10000;
+    
+    await supabase.from('loan_offers').insert({
+      lender_id: user.id,
+      vendor_id: oppId,
+      amount: numericAmount,
+      interest_rate: 12,
+      tenure: '6 months',
+      status: 'PENDING'
+    });
+    setLoanOffers(prev => [...prev, oppId]);
+    showToast('Loan Offer Sent!');
+  };
 
   // Filter logic
   const filteredOpps = opportunities.filter((opp) => {
@@ -328,8 +397,17 @@ function LenderBrowseScreen() {
   };
 
   const renderOpportunityCard = (opp: Opportunity) => {
+    const isFunded = opp.funding_status === 'FUNDED';
+    const isSaved = watchlists.includes(opp.id);
+    const hasOffered = loanOffers.includes(opp.id);
+
     return (
-      <View key={opp.id} style={styles.oppCard}>
+      <View key={opp.id} style={[styles.oppCard, isFunded && { opacity: 0.6 }]}>
+        {isFunded && (
+          <View style={styles.fundedOverlay}>
+            <Text style={styles.fundedOverlayText}>FUNDED</Text>
+          </View>
+        )}
         <View style={styles.oppCardTop}>
           <View style={styles.oppCardUser}>
             <Image source={{ uri: opp.image }} style={styles.oppCardAvatar} />
@@ -343,9 +421,14 @@ function LenderBrowseScreen() {
               </View>
             </View>
           </View>
-          <View style={[styles.oppScoreBadge, { backgroundColor: getScoreBg(opp.score) }]}>
-            <View style={[styles.oppScoreDot, { backgroundColor: getScoreColor(opp.score) }]} />
-            <Text style={[styles.oppScoreText, { color: getScoreColor(opp.score) }]}>{opp.score}</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+            <Pressable onPress={() => handleToggleWatchlist(opp.id)}>
+              <SymbolView name={isSaved ? "bookmark.fill" : "bookmark"} size={22} tintColor={isSaved ? "#D4820A" : "#6B6B6B"} />
+            </Pressable>
+            <View style={[styles.oppScoreBadge, { backgroundColor: getScoreBg(opp.score) }]}>
+              <View style={[styles.oppScoreDot, { backgroundColor: getScoreColor(opp.score) }]} />
+              <Text style={[styles.oppScoreText, { color: getScoreColor(opp.score) }]}>{opp.score}</Text>
+            </View>
           </View>
         </View>
 
@@ -369,13 +452,22 @@ function LenderBrowseScreen() {
             )}
           </View>
 
-          <Pressable 
-            onPress={() => showToast(`Opening profile of ${opp.name}`)}
-            style={styles.viewProfileBtn}
-          >
-            <Text style={styles.viewProfileBtnText}>VIEW PROFILE</Text>
-            <SymbolView name="arrow_forward" size={14} tintColor="#895100" />
-          </Pressable>
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+            <Pressable 
+              onPress={() => showToast(`Opening profile of ${opp.name}`)}
+              style={styles.viewProfileBtn}
+              disabled={isFunded}
+            >
+              <Text style={styles.viewProfileBtnText}>PROFILE</Text>
+            </Pressable>
+            <Pressable 
+              onPress={() => handleSendOffer(opp.id, opp.amount)}
+              style={[styles.viewProfileBtn, { backgroundColor: hasOffered ? '#6B6B6B' : '#D4820A', borderColor: hasOffered ? '#6B6B6B' : '#D4820A' }]}
+              disabled={isFunded || hasOffered}
+            >
+              <Text style={[styles.viewProfileBtnText, { color: '#ffffff' }]}>{hasOffered ? 'OFFERED' : 'OFFER'}</Text>
+            </Pressable>
+          </View>
         </View>
       </View>
     );
@@ -597,6 +689,7 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.three,
     fontFamily: Platform.OS === 'web' ? 'Sora' : 'sans-serif',
   },
+
   loanCard: {
     borderWidth: 1.5,
     borderRadius: 20,
@@ -907,6 +1000,28 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 2,
     gap: 12,
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  fundedOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(255, 255, 255, 0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 10,
+  },
+  fundedOverlayText: {
+    fontSize: 24,
+    fontWeight: '900',
+    color: '#895100',
+    letterSpacing: 4,
+    transform: [{ rotate: '-15deg' }],
+    fontFamily: Platform.OS === 'web' ? 'Sora' : 'sans-serif',
+    opacity: 0.8,
   },
   oppCardTop: {
     flexDirection: 'row',

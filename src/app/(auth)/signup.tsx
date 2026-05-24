@@ -19,7 +19,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { supabase } from '@/lib/supabase';
 
 export default function SignUpScreen() {
-  const { signUp, signIn, loading } = useAuth();
+  const { signUp, loading, selectedSignupRole } = useAuth();
 
   // Form states
   const [fullName, setFullName] = useState('');
@@ -197,7 +197,7 @@ export default function SignUpScreen() {
     !selfieLoading && 
     !businessLoading && 
     !!selfie && 
-    !!businessPhoto;
+    (selectedSignupRole !== 'VENDOR' || !!businessPhoto);
 
   return (
     <KeyboardAvoidingView
@@ -503,36 +503,38 @@ export default function SignUpScreen() {
             </View>
 
             {/* Storefront Upload */}
-            <View style={styles.storefrontSection}>
-              <Text style={styles.storefrontLabel}>BUSINESS STOREFRONT PHOTO</Text>
-              <Pressable
-                onPress={handlePickBusiness}
-                disabled={businessLoading}
-                {...(Platform.OS === 'web' && !businessPhoto ? { className: 'shimmer-upload' } : {})}
-                style={({ pressed }) => [
-                  styles.storefrontBox,
-                  !businessPhoto && styles.dashedBorder,
-                  { opacity: pressed ? 0.95 : 1.0 }
-                ]}
-              >
-                {businessLoading ? (
-                  <ActivityIndicator size="large" color="#895100" />
-                ) : businessPhoto ? (
-                  <View style={styles.uploadedContainer}>
-                    <Image source={{ uri: businessPhoto }} style={styles.uploadedImageRect} />
-                    <View style={styles.editBadgeRect}>
-                      <SymbolView name="pencil" size={14} tintColor="#ffffff" />
+            {selectedSignupRole === 'VENDOR' && (
+              <View style={styles.storefrontSection}>
+                <Text style={styles.storefrontLabel}>BUSINESS STOREFRONT PHOTO</Text>
+                <Pressable
+                  onPress={handlePickBusiness}
+                  disabled={businessLoading}
+                  {...(Platform.OS === 'web' && !businessPhoto ? { className: 'shimmer-upload' } : {})}
+                  style={({ pressed }) => [
+                    styles.storefrontBox,
+                    !businessPhoto && styles.dashedBorder,
+                    { opacity: pressed ? 0.95 : 1.0 }
+                  ]}
+                >
+                  {businessLoading ? (
+                    <ActivityIndicator size="large" color="#895100" />
+                  ) : businessPhoto ? (
+                    <View style={styles.uploadedContainer}>
+                      <Image source={{ uri: businessPhoto }} style={styles.uploadedImageRect} />
+                      <View style={styles.editBadgeRect}>
+                        <SymbolView name="pencil" size={14} tintColor="#ffffff" />
+                      </View>
                     </View>
-                  </View>
-                ) : (
-                  <View style={styles.storefrontPlaceholder}>
-                    <SymbolView name="storefront" size={32} tintColor="#895100" />
-                    <Text style={styles.storefrontPlaceholderText}>Click to upload photo</Text>
-                    <Text style={styles.storefrontPlaceholderSubtext}>JPG or PNG, max 5MB</Text>
-                  </View>
-                )}
-              </Pressable>
-            </View>
+                  ) : (
+                    <View style={styles.storefrontPlaceholder}>
+                      <SymbolView name="storefront" size={32} tintColor="#895100" />
+                      <Text style={styles.storefrontPlaceholderText}>Click to upload photo</Text>
+                      <Text style={styles.storefrontPlaceholderSubtext}>JPG or PNG, max 5MB</Text>
+                    </View>
+                  )}
+                </Pressable>
+              </View>
+            )}
           </View>
         </View>
 

@@ -1,12 +1,12 @@
 # VendorPass / TrustScore AI — Project Overview & Architecture
 
-VendorPass is a cross-platform mobile application designed to bridge micro-merchants and vendors in Bharat with lenders and banks. It implements a behavior-based credit scoring mechanism (TrustScore AI) and matches merchants with custom credit limits.
+VendorPass is a cross-platform mobile application designed to bridge micro-merchants and vendors in Bharat with lenders and financial institutions. It implements a behavior-based credit scoring mechanism (TrustScore AI) and matches merchants with custom credit limits.
 
 ---
 
 ## 🎨 Theme & Styling System
 *   **Design Aesthetic**: "Saffron Gold Fintech" (Warm luxury meets digital trust).
-*   **Palette**: Warm ivory backgrounds (`#F9F5EF`), Saffron Gold accents (`#D4820A`), Teal-Navy primary details (`#1A3A4A`), and Soft Gold/Amber highlights.
+*   **Palette**: Warm background colors (`#fdf9f3`), Saffron Gold accents (`#D4820A`), Slate Blue secondary details (`#446274`), and dark slate (`#1A3A4A`).
 *   **Fonts**: Playfair Display, Sora, DM Sans, JetBrains Mono (dynamic Google Fonts import on Web, system fallbacks on iOS/Android).
 *   **Styling Tooling**: Vanilla React Native `StyleSheet` leveraging design tokens from `@/constants/theme`.
 
@@ -15,21 +15,29 @@ VendorPass is a cross-platform mobile application designed to bridge micro-merch
 ## 👥 Target User Roles
 The application dynamically alters its dashboard and layout depending on the authenticated role:
 1.  **VENDOR / MERCHANT**:
-    *   **TrustScore AI**: Dynamic rising credit-score meter gauge (ranging from 0 to 40% onboarded).
-    *   **Credit limits**: Dynamic limit tracking (e.g., active ₹25,000 credit limit).
-    *   **Features**: Record sale/repay ledger entries, peer comparison rankings, and microfinance explore hub.
+    *   **TrustScore AI**: Dynamic semi-circular credit-score meter gauge (ranging from 300 to 850).
+    *   **Credit limits**: Dynamic limit tracking (e.g. pre-approved for ₹50,000).
+    *   **Features**: Record sale/repay ledger entries, check credit score insights, and access Vendor Credit Hub offers.
 2.  **LENDER / NBFC**:
     *   **Overview**: Total asset monitoring, active limits disbursed, and average portfolio health metrics.
-    *   **Features**: Credit pipeline and merchant limits approval panel.
+    *   **Features**: Credit pipeline with dynamic approve/decline actions, and active loans tracking feed.
 3.  **BANK / FINANCIAL INSTITUTION**:
     *   Similar to Lender view, optimized for processing merchant compliance and direct loan syndications.
+
+---
+
+## 💾 Database Integration & Calculations
+The project utilizes a Supabase database instance with the following schemas and integrations:
+1.  **`public.profiles`**: Synchronizes auth signups with user metadata (`name`, `role`, `selfie`, `business_photo`, `score`).
+2.  **`public.wallet_transactions`**: Stores transaction ledgers (`amount`, `type` check `'ADD' | 'SEND'`, `description`).
+3.  **`calculate_trust_score` (Edge Function)**: Triggered dynamically on database transaction updates to compute and update the merchant's trust score in real-time.
 
 ---
 
 ## ⚙️ Core Architecture & Directories
 
 ### 1. Context & Global State
-*   [`src/context/auth.tsx`](file:///c:/Users/HP/Desktop/VendorPass/src/context/auth.tsx): Houses the central `AuthProvider` handling simulated login, profile registration progress, role selections (`'VENDOR' | 'LENDER' | 'BANK'`), and mock verification flow (default mock OTP is `123456`).
+*   [`src/context/auth.tsx`](file:///c:/Users/HP/Desktop/VendorPass/src/context/auth.tsx): Houses the central `AuthProvider` handling real Supabase signup/login, role updates, and token sessions.
 
 ### 2. Custom Symbol View (Icon Adapter)
 *   [`src/components/symbol-view.tsx`](file:///c:/Users/HP/Desktop/VendorPass/src/components/symbol-view.tsx): A cross-platform adapter mapping iOS SF Symbols dynamically to `@expo/vector-icons` (`Ionicons` and `Feather`) on Android and Web while preserving native SF Symbols on iOS.
@@ -43,15 +51,14 @@ src/
 │   │   ├── _layout.tsx     # Animated stack transitions
 │   │   ├── login.tsx       # Login screen with curved overlay header
 │   │   ├── role-selection.tsx # Interactive choosing cards
-│   │   ├── signup.tsx      # Multi-step forms & upload placeholders
-│   │   ├── otp.tsx         # Auto-focusing code entry fields
+│   │   ├── signup.tsx      # Multi-step forms, photo picker & document upload
 │   │   └── success.tsx     # Confetti & TrustScore gauge meter pop
 │   ├── (tabs)/             # Main app tab group
 │   │   ├── _layout.tsx     # Tab configuration wrapper
 │   │   ├── index.tsx       # Dynamic Dashboard (Lender vs Vendor View)
-│   │   └── explore.tsx     # Credit Hub comparison & educational resources
+│   │   └── explore.tsx     # Lender Search & Browse / Vendor Credit Hub
 │   ├── _layout.tsx         # Root container & Context Provider mapping
-│   └── index.tsx           # Entry controller & scaling Splash Mandala Logo
+│   └── index.tsx           # Entry Splash Screen & scaling Splash Mandala Logo
 ├── components/             # Reusable UI components & custom theme layouts
 ├── constants/
 │   └── theme.ts            # Saffron Gold colors, layout spacing & fonts map
@@ -60,11 +67,35 @@ src/
 
 ---
 
+## 📱 Redesigned Screens & Modules
+
+### 1. Signup & Verification Flow
+*   Bypasses the mock OTP verification screen, registering the profile directly in Supabase on form submit.
+*   Form collects real picker camera uploads for selfies and business docs (resolving local image blob colons path upload 400 error by extracting correct mime types and extensions from assets metadata).
+*   Features verify password matching validation fields.
+
+### 2. Lender Dashboard Redesign (`(tabs)/index.tsx`)
+*   **Top Bar**: Fixed header displaying profile portrait, "VERIFIED" badge, greeting "Welcome Back, [user.name] 👋", notification bell, and settings gear.
+*   **Hero Portfolio Card**: Gradient panel (`#1A3A4A` -> `#0A1A24`) showing TOTAL CAPITAL DEPLOYED (₹4,85,000), Active Loans (12), Avg Return (18.4%), repayments (94%), and Sparkline trend bar graph.
+*   **Quick Actions Grid**: Row of 4 modules: Browse Vendors (routes to search), New Loan, Portfolio, and At-Risk.
+*   **Applicants Queue**: Renders live vendor profiles loaded from Supabase. Clicking Decline/Approve filters them out from the lender's active attention queue.
+*   **Active Feed**: Displays active loan records (Krishna General Store, S.K. Logistics, Anita Boutique) showing installments progress bars, next EMI dates, status tags, and "At-Risk" alerts.
+
+### 3. Lender Search/Browse Redesign (`(tabs)/explore.tsx`)
+*   **Role-Based Wrapper**: Displays Lender Search & Browse for Lenders, and the personalized loan offers for Vendors.
+*   **Top Header & Search Bar**: Live query input search bar filtering names, categories, or locations in real-time.
+*   **Filter Pills**: Scrollable pills ("Near Me", "High Score", "Micro-Retail") that dynamically filter the active opportunities list.
+*   **Metric Cards**: Verified Today ("128+") and Total Volume ("₹4.2M") with checkmark shield and trend line SVG watermarks in the background.
+*   **Opportunities Feed**: Merged listing of vendor profiles loaded from Supabase and high-fidelity mockup opportunities (Priya's Organic Mart, Artisan Ceramics, TechFix Solutions).
+*   **FAB**: Rounded floating map FAB button in the bottom right corner.
+
+---
+
 ## 🛠️ Verification & Development Commands
 
 To check project health or run the local development server:
 
-*   **Run Web Server**: `npm run web` (or `npm run web -- --clear` to clear Metro bundler cache)
+*   **Run Web Server**: `npm run web`
 *   **Run Android Emulator**: `npm run android`
 *   **TypeScript Validation**: `npx.cmd tsc --noEmit`
 *   **Linter Checks**: `npm run lint`

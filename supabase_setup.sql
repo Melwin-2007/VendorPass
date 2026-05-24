@@ -158,3 +158,53 @@ create trigger on_wallet_transaction
   after insert on public.wallet_transactions
   for each row execute procedure public.invoke_trust_score_calculation();
 
+-- 12. Add funding_status to profiles for realtime tracking
+alter table public.profiles add column if not exists funding_status text default 'LOOKING_FOR_FUNDS' check (funding_status in ('LOOKING_FOR_FUNDS', 'FUNDED'));
+
+-- 13. Create watchlists table for Lenders
+create table public.watchlists (
+  id uuid default gen_random_uuid() primary key,
+  lender_id uuid references public.profiles(id) on delete cascade not null,
+  vendor_id uuid references public.profiles(id) on delete cascade not null,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null,
+  unique(lender_id, vendor_id)
+);
+
+grant all on table public.watchlists to anon, authenticated;
+alter table public.watchlists enable row level security;
+
+create policy "Allow lenders to manage their watchlists"
+on public.watchlists for all to authenticated
+using ((select auth.uid()) = lender_id)
+with check ((select auth.uid()) = lender_id);
+
+-- 14. Create loan_offers table
+create table public.loan_offers (
+  id uuid default gen_random_uuid() primary key,
+  lender_id uuid references public.profiles(id) on delete cascade not null,
+  vendor_id uuid references public.profiles(id) on delete cascade not null,
+  amount numeric not null,
+  interest_rate numeric not null,
+  tenure text not null,
+  status text default 'PENDING' check (status in ('PENDING', 'ACCEPTED', 'DECLINED')) not null,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+grant all on table public.loan_offers to anon, authenticated;
+alter table public.loan_offers enable row level security;
+
+create policy "Allow lenders to manage their loan offers"
+on public.loan_offers for all to authenticated
+using ((select auth.uid()) = lender_id)
+with check ((select auth.uid()) = lender_id);
+
+create policy "Allow vendors to view their received loan offers"
+on public.loan_offers for select to authenticated
+using ((select auth.uid()) = vendor_id);
+
+-- 15. Enable Realtime on tables
+-- Drop existing publication if it exists to recreate it
+drop publication if exists supabase_realtime cascade;
+create publication supabase_realtime;
+alter publication supabase_realtime add table public.profiles;
+alter publication supabase_realtime add table public.loan_offers;
