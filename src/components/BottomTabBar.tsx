@@ -83,6 +83,56 @@ export function BottomTabBar({
 
 
 
+export function LenderBottomTabBar({ activeTab }: { activeTab: 'home' | 'browse' | 'repayments' | 'chat' }) {
+  return (
+    <View style={styles.floatingTabBar}>
+      <Pressable style={styles.tabItem} onPress={() => router.push('/(tabs)')}>
+        {activeTab === 'home' ? (
+          <View style={styles.activeTabCircle}>
+            <SymbolView tintColor="#ffffff" name="home" size={22} />
+          </View>
+        ) : (
+          <SymbolView tintColor="#8E8E93" name="home" size={22} />
+        )}
+        <Text style={activeTab === 'home' ? styles.activeTabText : styles.inactiveTabText}>Home</Text>
+      </Pressable>
+
+      <Pressable style={styles.tabItem} onPress={() => router.push('/(tabs)/explore')}>
+        {activeTab === 'browse' ? (
+          <View style={styles.activeTabCircle}>
+            <SymbolView tintColor="#ffffff" name="search" size={22} />
+          </View>
+        ) : (
+          <SymbolView tintColor="#8E8E93" name="search" size={22} />
+        )}
+        <Text style={activeTab === 'browse' ? styles.activeTabText : styles.inactiveTabText}>Browse</Text>
+      </Pressable>
+
+      <Pressable style={styles.tabItem} onPress={() => router.push('/repayments')}>
+        {activeTab === 'repayments' ? (
+          <View style={styles.activeTabCircle}>
+            <SymbolView tintColor="#ffffff" name="calendar_today" size={22} />
+          </View>
+        ) : (
+          <SymbolView tintColor="#8E8E93" name="calendar_today" size={22} />
+        )}
+        <Text style={activeTab === 'repayments' ? styles.activeTabText : styles.inactiveTabText}>Repayments</Text>
+      </Pressable>
+
+      <Pressable style={styles.tabItem} onPress={() => router.push('/chat')}>
+        {activeTab === 'chat' ? (
+          <View style={styles.activeTabCircle}>
+            <SymbolView tintColor="#ffffff" name="chat_bubble" size={22} />
+          </View>
+        ) : (
+          <SymbolView tintColor="#8E8E93" name="chat_bubble" size={22} />
+        )}
+        <Text style={activeTab === 'chat' ? styles.activeTabText : styles.inactiveTabText}>Chat</Text>
+      </Pressable>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   floatingTabBar: {
     position: 'absolute',

@@ -11,7 +11,7 @@ import {
   Image,
   TouchableOpacity,
 } from 'react-native';
-import { BottomTabBar } from '@/components/BottomTabBar';
+import { BottomTabBar, LenderBottomTabBar } from '@/components/BottomTabBar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '@/context/auth';
 import { useTheme } from '@/hooks/use-theme';
@@ -105,8 +105,8 @@ export default function DashboardScreen() {
   const [walletBalance, setWalletBalance] = useState(0);
 
   // Local metrics state
-  const [supplierCount, setSupplierCount] = useState(4);
-  const [activeDays, setActiveDays] = useState(26);
+  const [supplierCount, setSupplierCount] = useState(0);
+  const [activeDays, setActiveDays] = useState(0);
   const [dailyAvg, setDailyAvg] = useState('2,340');
   
   // Custom toast notification message
@@ -252,6 +252,30 @@ export default function DashboardScreen() {
           setAvailableLenders(mappedLenders);
         }
 
+        // 2. Fetch Active Days & Suppliers Metrics
+        const { data: profileData } = await supabase
+          .from('profiles')
+          .select('created_at')
+          .eq('id', user.id)
+          .single();
+        
+        if (profileData?.created_at) {
+          const createdDate = new Date(profileData.created_at).getTime();
+          const diffTime = Math.abs(Date.now() - createdDate);
+          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+          setActiveDays(diffDays);
+        }
+
+        const { data: offersData } = await supabase
+          .from('loan_offers')
+          .select('lender_id')
+          .eq('vendor_id', user.id)
+          .eq('status', 'ACCEPTED');
+
+        if (offersData) {
+          const uniqueSuppliers = new Set(offersData.map(o => o.lender_id));
+          setSupplierCount(uniqueSuppliers.size);
+        }
       };
 
       fetchVendorData();
@@ -319,23 +343,28 @@ export default function DashboardScreen() {
 
   const handleApproveCredit = async (id: string, amount: number, vendorId: string) => {
     if (!user) return;
-    const { error } = await supabase.from('loan_offers').update({ status: 'ACCEPTED' }).eq('id', id);
+    const { error } = await supabase.from('loan_offers').update({ status: 'ACCEPTED', accepted_at: new Date().toISOString() }).eq('id', id);
     if (error) {
       showToast('❌ Failed to approve loan.');
     } else {
+      const { data: lenderData } = await supabase.from('profiles').select('name').eq('id', user.id).single();
+      const { data: vendorData } = await supabase.from('profiles').select('name').eq('id', vendorId).single();
+      const lenderName = lenderData?.name || 'Lender';
+      const vendorName = vendorData?.name || 'Vendor';
+
       // 1. Send transaction for Lender
       await supabase.from('wallet_transactions').insert({
         user_id: user.id,
         amount: amount,
         type: 'SEND',
-        description: 'Loan Disbursement'
+        description: `Loan Disbursement to ${vendorName}`
       });
       // 2. Add transaction for Vendor
       await supabase.from('wallet_transactions').insert({
         user_id: vendorId,
         amount: amount,
         type: 'ADD',
-        description: 'Loan Received'
+        description: `Loan Received from ${lenderName}`
       });
       showToast('✅ Loan approved & disbursed!');
     }
@@ -584,47 +613,7 @@ export default function DashboardScreen() {
     );
   };
 
-  const renderLenderBottomTabBar = () => {
-    return (
-      <View style={styles.lenderBottomBar}>
-        <Pressable 
-          onPress={() => showToast('ℹ️ Home is active.')}
-          style={[styles.lenderBottomBarItem, styles.lenderBottomBarItemActive]}
-        >
-          <SymbolView name="home_app_logo" size={22} tintColor="#895100" />
-          <Text style={styles.lenderBottomBarTextActive}>Home</Text>
-        </Pressable>
-        <Pressable 
-          onPress={() => showToast('ℹ️ Portfolio tracker.')}
-          style={styles.lenderBottomBarItem}
-        >
-          <SymbolView name="pie_chart" size={22} tintColor="#534435" />
-          <Text style={styles.lenderBottomBarText}>Portfolio</Text>
-        </Pressable>
-        <Pressable 
-          onPress={() => router.push('/(tabs)/explore')}
-          style={styles.lenderBottomBarItem}
-        >
-          <SymbolView name="search" size={22} tintColor="#534435" />
-          <Text style={styles.lenderBottomBarText}>Browse</Text>
-        </Pressable>
-        <Pressable 
-          onPress={() => showToast('ℹ️ Repayments schedule.')}
-          style={styles.lenderBottomBarItem}
-        >
-          <SymbolView name="calendar_today" size={22} tintColor="#534435" />
-          <Text style={styles.lenderBottomBarText}>Repayments</Text>
-        </Pressable>
-        <Pressable 
-          onPress={() => showToast('ℹ️ Support Chat.')}
-          style={styles.lenderBottomBarItem}
-        >
-          <SymbolView name="chat_bubble" size={22} tintColor="#534435" />
-          <Text style={styles.lenderBottomBarText}>Chat</Text>
-        </Pressable>
-      </View>
-    );
-  };
+
 
   const renderLenderDashboard = () => {
     const acceptedOffers = lenderOffers.filter(o => o.status === 'ACCEPTED');
@@ -891,7 +880,7 @@ export default function DashboardScreen() {
       </ScrollView>
 
       {isLender ? (
-        renderLenderBottomTabBar()
+        <LenderBottomTabBar activeTab="home" />
       ) : (
         <BottomTabBar 
           activeTab="home"

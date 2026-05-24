@@ -16,6 +16,7 @@ import { SymbolView } from '@/components/symbol-view';
 import { router } from 'expo-router';
 import { useAuth } from '@/context/auth';
 import { supabase } from '@/lib/supabase';
+import { LenderBottomTabBar } from '@/components/BottomTabBar';
 
 // -------------------- VENDOR CREDIT HUB SCREEN --------------------
 function VendorCreditHubScreen() {
@@ -596,43 +597,7 @@ function LenderBrowseScreen() {
       </Pressable>
 
       {/* Bottom Nav Bar */}
-      <View style={styles.lenderBottomBar}>
-        <Pressable 
-          onPress={() => router.push('/(tabs)')}
-          style={styles.lenderBottomBarItem}
-        >
-          <SymbolView name="home" size={22} tintColor="#534435" />
-          <Text style={styles.lenderBottomBarText}>Home</Text>
-        </Pressable>
-        <Pressable 
-          onPress={() => showToast('ℹ️ Portfolio tracker.')}
-          style={styles.lenderBottomBarItem}
-        >
-          <SymbolView name="pie_chart" size={22} tintColor="#534435" />
-          <Text style={styles.lenderBottomBarText}>Portfolio</Text>
-        </Pressable>
-        <Pressable 
-          onPress={() => {}}
-          style={[styles.lenderBottomBarItem, styles.lenderBottomBarItemActive]}
-        >
-          <SymbolView name="search" size={22} tintColor="#895100" />
-          <Text style={styles.lenderBottomBarTextActive}>Browse</Text>
-        </Pressable>
-        <Pressable 
-          onPress={() => showToast('ℹ️ Repayments schedule.')}
-          style={styles.lenderBottomBarItem}
-        >
-          <SymbolView name="calendar_today" size={22} tintColor="#534435" />
-          <Text style={styles.lenderBottomBarText}>Repayments</Text>
-        </Pressable>
-        <Pressable 
-          onPress={() => showToast('ℹ️ Support Chat.')}
-          style={styles.lenderBottomBarItem}
-        >
-          <SymbolView name="chat_bubble" size={22} tintColor="#534435" />
-          <Text style={styles.lenderBottomBarText}>Chat</Text>
-        </Pressable>
-      </View>
+      <LenderBottomTabBar activeTab="browse" />
     </View>
   );
 }

@@ -119,7 +119,7 @@ using ((select auth.uid()) = user_id);
 
 create policy "Allow users to insert their own wallet transactions"
 on public.wallet_transactions for insert to authenticated
-with check ((select auth.uid()) = user_id);
+with check (true);
 
 -- 10. Add trust_score_data to profiles
 alter table public.profiles add column if not exists trust_score_data jsonb;
@@ -187,7 +187,8 @@ create table public.loan_offers (
   interest_rate numeric not null,
   tenure text not null,
   status text default 'PENDING' check (status in ('PENDING', 'ACCEPTED', 'DECLINED')) not null,
-  created_at timestamp with time zone default timezone('utc'::text, now()) not null
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null,
+  accepted_at timestamp with time zone
 );
 
 grant all on table public.loan_offers to anon, authenticated;

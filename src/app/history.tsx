@@ -28,7 +28,6 @@ export default function HistoryScreen() {
   // Repayment Modal
   const [repayModalVisible, setRepayModalVisible] = useState(false);
   const [selectedRepayment, setSelectedRepayment] = useState<any>(null);
-  const [repayAmount, setRepayAmount] = useState('');
 
   useEffect(() => {
     if (user?.role === 'VENDOR') {
@@ -63,15 +62,50 @@ export default function HistoryScreen() {
     }, 3000);
   };
 
-  const handleRepayLoan = async () => {
-    if (!user || !selectedRepayment) return;
-    const amt = parseFloat(repayAmount.replace(/,/g, ''));
-    if (isNaN(amt) || amt <= 0) {
-      showToast('❌ Invalid amount');
-      return;
+  let amountDue = 0;
+  let totalLoanAmount = 0;
+  let nextUnlockMinutes = 0;
+  let isFullyPaid = false;
+  let alreadyPaid = 0;
+  let demoMonthsElapsed = 0;
+
+  if (selectedRepayment) {
+    const principal = Number(selectedRepayment.amount);
+    const interest = Number(selectedRepayment.interest_rate) || 0;
+    totalLoanAmount = principal + (principal * (interest / 100));
+    
+    const tenureMatches = selectedRepayment.tenure.match(/(\d+)/);
+    const tenureMonths = tenureMatches ? parseInt(tenureMatches[1], 10) : 1;
+    const emiAmount = totalLoanAmount / tenureMonths;
+
+    const baseTime = selectedRepayment.accepted_at ? new Date(selectedRepayment.accepted_at).getTime() : new Date(selectedRepayment.created_at).getTime();
+    const elapsedMilliseconds = Date.now() - baseTime;
+    // 1 demo month = 5 real minutes (300,000 ms)
+    demoMonthsElapsed = Math.floor(elapsedMilliseconds / (5 * 60 * 1000));
+    const accruedAmount = demoMonthsElapsed * emiAmount;
+
+    alreadyPaid = Number(selectedRepayment.amount_paid) || 0;
+    amountDue = accruedAmount - alreadyPaid;
+
+    if (amountDue > (totalLoanAmount - alreadyPaid)) {
+      amountDue = totalLoanAmount - alreadyPaid;
     }
 
-    const newAmountPaid = (Number(selectedRepayment.amount_paid) || 0) + amt;
+    if (alreadyPaid >= totalLoanAmount) {
+      isFullyPaid = true;
+      amountDue = 0;
+    } else if (amountDue <= 0) {
+      amountDue = 0;
+      const baseTime = selectedRepayment.accepted_at ? new Date(selectedRepayment.accepted_at).getTime() : new Date(selectedRepayment.created_at).getTime();
+      const nextUnlockTime = baseTime + ((demoMonthsElapsed + 1) * 5 * 60 * 1000);
+      nextUnlockMinutes = Math.ceil((nextUnlockTime - Date.now()) / (60 * 1000));
+    }
+  }
+
+  const handleRepayLoan = async () => {
+    if (!user || !selectedRepayment || amountDue <= 0) return;
+
+    const newAmountPaid = alreadyPaid + amountDue;
 
     const { error } = await supabase.from('loan_offers')
       .update({ amount_paid: newAmountPaid })
@@ -80,24 +114,35 @@ export default function HistoryScreen() {
     if (error) {
       showToast('❌ Repayment failed');
     } else {
+      const lenderName = selectedRepayment.profiles?.name || 'Lender';
+      const vendorName = user.user_metadata?.name || 'Vendor';
+      
+      const cleanAmount = Math.round(amountDue * 100) / 100;
+
       // 1. Send from Vendor
-      await supabase.from('wallet_transactions').insert({
+      const { error: tx1Err } = await supabase.from('wallet_transactions').insert({
         user_id: user.id,
-        amount: amt,
+        amount: cleanAmount,
         type: 'SEND',
-        description: 'Loan EMI Repayment'
+        description: `Month ${demoMonthsElapsed} EMI to ${lenderName}`
       });
+      
       // 2. Add to Lender
-      await supabase.from('wallet_transactions').insert({
+      const { error: tx2Err } = await supabase.from('wallet_transactions').insert({
         user_id: selectedRepayment.lender_id,
-        amount: amt,
+        amount: cleanAmount,
         type: 'ADD',
-        description: 'EMI Received'
+        description: `Month ${demoMonthsElapsed} EMI from ${vendorName}`
       });
-      showToast('✅ Repayment successful!');
-      setRepayModalVisible(false);
-      setRepayAmount('');
-      setSelectedRepayment(null);
+
+      if (tx1Err || tx2Err) {
+        console.error("TX Error:", tx1Err, tx2Err);
+        showToast('❌ Wallet transaction failed (Check Console).');
+      } else {
+        showToast('✅ EMI paid successfully!');
+        setRepayModalVisible(false);
+        setSelectedRepayment(null);
+      }
     }
   };
 
@@ -171,7 +216,6 @@ export default function HistoryScreen() {
         onRequestClose={() => {
           setRepayModalVisible(false);
           setSelectedRepayment(null);
-          setRepayAmount('');
         }}
       >
         <View style={styles.modalOverlay}>
@@ -181,7 +225,6 @@ export default function HistoryScreen() {
               <Pressable onPress={() => {
                 setRepayModalVisible(false);
                 setSelectedRepayment(null);
-                setRepayAmount('');
               }} style={styles.modalCloseBtn}>
                 <SymbolView tintColor="#1c1c18" name="xmark" size={20} />
               </Pressable>
@@ -191,26 +234,36 @@ export default function HistoryScreen() {
               <View style={styles.modalBody}>
                 <View style={{ backgroundColor: '#F5F5F5', padding: 16, borderRadius: 12, marginBottom: 16 }}>
                   <Text style={{ fontSize: 12, color: '#6B6B6B', marginBottom: 4 }}>Total Loan</Text>
-                  <Text style={{ fontSize: 16, fontWeight: 'bold' }}>₹{Number(selectedRepayment.amount).toLocaleString('en-IN')}</Text>
+                  <Text style={{ fontSize: 16, fontWeight: 'bold' }}>₹{totalLoanAmount.toLocaleString('en-IN')}</Text>
                   <View style={{ height: 1, backgroundColor: '#E0E0E0', marginVertical: 8 }} />
                   <Text style={{ fontSize: 12, color: '#6B6B6B', marginBottom: 4 }}>Already Paid</Text>
                   <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#2D7D46' }}>₹{(Number(selectedRepayment.amount_paid) || 0).toLocaleString('en-IN')}</Text>
                 </View>
 
-                <Text style={styles.modalLabel}>Enter EMI Amount (₹)</Text>
-                <TextInput
-                  style={styles.modalInput}
-                  placeholder="e.g. 5000"
-                  placeholderTextColor="#A0A0A0"
-                  keyboardType="numeric"
-                  value={repayAmount}
-                  onChangeText={setRepayAmount}
-                />
+                <Text style={styles.modalLabel}>Current EMI Amount Due</Text>
+                {isFullyPaid ? (
+                  <View style={[styles.modalInput, { backgroundColor: '#E8F5E9', borderColor: '#2D7D46', justifyContent: 'center' }]}>
+                    <Text style={{ fontSize: 16, color: '#2D7D46', fontWeight: 'bold' }}>Loan Fully Paid! 🎉</Text>
+                  </View>
+                ) : amountDue > 0 ? (
+                  <View style={[styles.modalInput, { backgroundColor: '#F9F5EF', justifyContent: 'center' }]}>
+                    <Text style={{ fontSize: 18, fontWeight: 'bold' }}>₹{amountDue.toLocaleString('en-IN')}</Text>
+                  </View>
+                ) : (
+                  <View style={[styles.modalInput, { backgroundColor: '#FFF3E0', borderColor: '#D4820A', justifyContent: 'center' }]}>
+                    <Text style={{ fontSize: 14, color: '#D4820A', fontWeight: '600' }}>EMIs are up to date.</Text>
+                    <Text style={{ fontSize: 12, color: '#895100', marginTop: 4 }}>Next EMI due in {nextUnlockMinutes} min</Text>
+                  </View>
+                )}
+
                 <Text style={{ fontSize: 12, color: '#895100', marginTop: 8 }}>
                   Note: Amount will be deducted from your VendorPASS Wallet.
                 </Text>
 
-                <Pressable onPress={handleRepayLoan} style={[styles.modalSubmitBtn, { backgroundColor: '#2D7D46', marginTop: 24 }]}>
+                <Pressable 
+                  onPress={amountDue > 0 ? handleRepayLoan : undefined} 
+                  style={[styles.modalSubmitBtn, { backgroundColor: amountDue > 0 ? '#2D7D46' : '#A0A0A0', marginTop: 24 }]}
+                >
                   <Text style={styles.modalSubmitBtnText}>Proceed to Pay</Text>
                 </Pressable>
               </View>
