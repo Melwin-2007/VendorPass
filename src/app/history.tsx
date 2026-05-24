@@ -11,6 +11,7 @@ import {
   Image,
 } from 'react-native';
 import { router } from 'expo-router';
+import Toast from 'react-native-toast-message';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '@/context/auth';
 import { Spacing } from '@/constants/theme';
@@ -23,7 +24,7 @@ export default function HistoryScreen() {
   const insets = useSafeAreaInsets();
 
   const [vendorApplications, setVendorApplications] = useState<any[]>([]);
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  
 
   // Repayment Modal
   const [repayModalVisible, setRepayModalVisible] = useState(false);
@@ -55,11 +56,12 @@ export default function HistoryScreen() {
     }
   }, [user]);
 
-  const showToast = (message: string) => {
-    setToastMessage(message);
-    setTimeout(() => {
-      setToastMessage(null);
-    }, 3000);
+  const showToast = (message: string, type: 'success' | 'error' | 'info' = 'info') => {
+    Toast.show({
+      type: type,
+      text1: message,
+      position: 'top',
+    });
   };
 
   let amountDue = 0;
@@ -113,7 +115,7 @@ export default function HistoryScreen() {
       .eq('id', selectedRepayment.id);
 
     if (error) {
-      showToast('❌ Repayment failed');
+      showToast('Repayment Failed. Unable to process transaction.', 'error');
     } else {
       const lenderName = selectedRepayment.profiles?.name || 'Lender';
       const vendorName = user.user_metadata?.name || 'Vendor';
@@ -138,7 +140,7 @@ export default function HistoryScreen() {
 
       if (tx1Err || tx2Err) {
         console.error("TX Error:", tx1Err, tx2Err);
-        showToast('❌ Wallet transaction failed (Check Console).');
+        showToast('Transaction Error. Ledger update failed.', 'error');
       } else {
         const paidMonths = Math.floor(alreadyPaid / emiAmount);
         const isPayingLate = demoMonthsElapsed > paidMonths;
@@ -171,7 +173,7 @@ export default function HistoryScreen() {
           message: aiReason
         });
 
-        showToast('✅ EMI paid successfully!');
+        showToast('Payment Successful. EMI has been processed.', 'success');
         setRepayModalVisible(false);
         setSelectedRepayment(null);
       }
@@ -180,11 +182,6 @@ export default function HistoryScreen() {
 
   return (
     <View style={styles.container}>
-      {toastMessage && (
-        <View style={styles.toastOverlay}>
-          <Text style={styles.toastText}>{toastMessage}</Text>
-        </View>
-      )}
 
       {/* Header */}
       <View style={[styles.header, { paddingTop: Math.max(insets.top, 20) }]}>

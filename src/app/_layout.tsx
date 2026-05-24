@@ -1,5 +1,6 @@
 import { DarkTheme, DefaultTheme, ThemeProvider, Stack } from 'expo-router';
 import { useColorScheme, Platform } from 'react-native';
+import Toast from 'react-native-toast-message';
 
 import { AuthProvider } from '@/context/auth';
 
@@ -23,6 +24,7 @@ export default function RootLayout() {
           <Stack.Screen name="(tabs)" />
           <Stack.Screen name="wallet" options={{ animation: 'slide_from_bottom' }} />
         </Stack>
+        <Toast />
       </AuthProvider>
     </ThemeProvider>
   );

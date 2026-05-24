@@ -14,6 +14,7 @@ import { useTheme } from '@/hooks/use-theme';
 import { BottomTabInset, Spacing } from '@/constants/theme';
 import { SymbolView } from '@/components/symbol-view';
 import { router } from 'expo-router';
+import Toast from 'react-native-toast-message';
 import { useAuth } from '@/context/auth';
 import { supabase } from '@/lib/supabase';
 import { LenderBottomTabBar } from '@/components/BottomTabBar';
@@ -229,7 +230,7 @@ const defaultOpportunities: Opportunity[] = [
 ];
 
 function LenderBrowseScreen() {
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedFilter, setSelectedFilter] = useState('Near Me');
   const [opportunities, setOpportunities] = useState<Opportunity[]>(defaultOpportunities);
@@ -237,11 +238,12 @@ function LenderBrowseScreen() {
   const [loanOffers, setLoanOffers] = useState<string[]>([]);
   const { user } = useAuth();
 
-  const showToast = (message: string) => {
-    setToastMessage(message);
-    setTimeout(() => {
-      setToastMessage(null);
-    }, 3000);
+  const showToast = (message: string, type: 'success' | 'error' | 'info' = 'info') => {
+    Toast.show({
+      type: type,
+      text1: message,
+      position: 'top',
+    });
   };
 
   // Fetch dynamic vendor profiles from Supabase and merge
@@ -340,11 +342,11 @@ function LenderBrowseScreen() {
     if (isSaved) {
       await supabase.from('watchlists').delete().eq('lender_id', user.id).eq('vendor_id', oppId);
       setWatchlists(prev => prev.filter(id => id !== oppId));
-      showToast('Removed from Watchlist');
+      showToast('Watchlist Updated. Profile removed.', 'info');
     } else {
       await supabase.from('watchlists').insert({ lender_id: user.id, vendor_id: oppId });
       setWatchlists(prev => [...prev, oppId]);
-      showToast('Added to Watchlist');
+      showToast('Watchlist Updated. Profile added.', 'success');
     }
   };
 
@@ -361,7 +363,7 @@ function LenderBrowseScreen() {
       status: 'PENDING'
     });
     setLoanOffers(prev => [...prev, oppId]);
-    showToast('Loan Offer Sent!');
+    showToast('Offer Submitted. Pending vendor review.', 'success');
   };
 
   // Filter logic
@@ -455,7 +457,7 @@ function LenderBrowseScreen() {
 
           <View style={{ flexDirection: 'row', gap: 8 }}>
             <Pressable 
-              onPress={() => showToast(`Opening profile of ${opp.name}`)}
+              onPress={() => showToast(`Profile. Loading data for ${opp.name}.`, 'info')}
               style={styles.viewProfileBtn}
               disabled={isFunded}
             >
@@ -476,11 +478,6 @@ function LenderBrowseScreen() {
 
   return (
     <View style={styles.lenderBrowseContainer}>
-      {toastMessage && (
-        <View style={styles.toastOverlay}>
-          <Text style={styles.toastText}>{toastMessage}</Text>
-        </View>
-      )}
 
       {/* Header */}
       <View style={styles.lenderBrowseHeader}>
@@ -493,11 +490,11 @@ function LenderBrowseScreen() {
           <Text style={styles.lenderWordmark}>Vendor<Text style={{ color: '#895100' }}>PASS</Text></Text>
         </View>
         <View style={styles.lenderNavRight}>
-          <Pressable onPress={() => showToast('Map overlay toggled')} style={styles.navIconPressable}>
+          <Pressable onPress={() => showToast('Map View. Overlay active.', 'info')} style={styles.navIconPressable}>
             <SymbolView name="building.columns" size={22} tintColor="#534435" />
             <View style={styles.activeDot} />
           </Pressable>
-          <Pressable onPress={() => showToast('Inbox notification tray')} style={styles.navIconPressable}>
+          <Pressable onPress={() => showToast('Inbox. Viewing messages.', 'info')} style={styles.navIconPressable}>
             <SymbolView name="notifications" size={22} tintColor="#534435" />
           </Pressable>
         </View>
@@ -569,7 +566,7 @@ function LenderBrowseScreen() {
             <Text style={styles.oppsTitle}>Top Opportunities</Text>
             <Text style={styles.oppsSubtitle}>Based on your portfolio risk settings</Text>
           </View>
-          <Pressable onPress={() => showToast('Sorting options')} style={styles.sortBtn}>
+          <Pressable onPress={() => showToast('Filters. Sorting options applied.', 'info')} style={styles.sortBtn}>
             <Text style={styles.sortBtnText}>SORT BY SCORE</Text>
             <SymbolView name="chevron.down" size={12} tintColor="#895100" />
           </Pressable>
@@ -590,7 +587,7 @@ function LenderBrowseScreen() {
 
       {/* Floating Map FAB */}
       <Pressable 
-        onPress={() => showToast('Opening map search grid')}
+        onPress={() => showToast('Search Grid. Map view opened.', 'info')}
         style={({ pressed }) => [styles.mapFloatingFab, { transform: [{ scale: pressed ? 0.95 : 1 }] }]}
       >
         <SymbolView name="building.columns" size={24} tintColor="#ffffff" />

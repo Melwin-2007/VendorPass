@@ -17,7 +17,8 @@ import { useAuth } from '@/context/auth';
 import { useTheme } from '@/hooks/use-theme';
 import { BottomTabInset, Spacing } from '@/constants/theme';
 import { SymbolView } from '@/components/symbol-view';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
+import Toast from 'react-native-toast-message';
 import { supabase } from '@/lib/supabase';
 import Svg, { Path } from 'react-native-svg';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -53,6 +54,7 @@ export default function DashboardScreen() {
   const { user, signOut } = useAuth();
   const theme = useTheme();
   const safeAreaInsets = useSafeAreaInsets();
+  const { applyLoan } = useLocalSearchParams<{ applyLoan?: string }>();
 
   const insets = {
     ...safeAreaInsets,
@@ -112,7 +114,7 @@ export default function DashboardScreen() {
   const [dailyAvg, setDailyAvg] = useState('2,340');
   
   // Custom toast notification message
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  
 
   // Score gauge offset state for load animation (radius = 70, semi-circle arc length = 220)
   const [gaugeOffset, setGaugeOffset] = useState(220);
@@ -309,12 +311,59 @@ export default function DashboardScreen() {
   }, [user?.role, user?.id]);
 
   // Helper for showing a temporary toast notification
-  const showToast = (message: string) => {
-    setToastMessage(message);
-    setTimeout(() => {
-      setToastMessage(null);
-    }, 3500);
+  const showToast = (message: string, type: 'success' | 'error' | 'info' = 'info') => {
+    Toast.show({
+      type: type,
+      text1: message,
+      position: 'top',
+    });
   };
+
+  const handleOpenLendersModal = async () => {
+    if (!user) return;
+    
+    // Check eligibility
+    const { data: existingLoans } = await supabase
+      .from('loan_offers')
+      .select('*, amount, interest_rate, amount_paid')
+      .eq('vendor_id', user.id)
+      .in('status', ['PENDING', 'ACCEPTED']);
+      
+    let hasActiveLoan = false;
+    
+    if (existingLoans && existingLoans.length > 0) {
+      for (const loan of existingLoans) {
+        if (loan.status === 'PENDING') {
+          hasActiveLoan = true;
+          break;
+        }
+        if (loan.status === 'ACCEPTED') {
+          const principal = Number(loan.amount);
+          const interest = Number(loan.interest_rate) || 0;
+          const totalLoanAmount = principal + (principal * (interest / 100));
+          const alreadyPaid = Number(loan.amount_paid) || 0;
+          
+          if (Math.round(alreadyPaid) < Math.round(totalLoanAmount)) {
+            hasActiveLoan = true;
+            break;
+          }
+        }
+      }
+    }
+    
+    if (hasActiveLoan) {
+      showToast('Active Loan Detected. Repayment required before new applications.', 'error');
+    } else {
+      setLendersModalVisible(true);
+    }
+  };
+
+  useEffect(() => {
+    if (applyLoan === 'true' && user?.role === 'VENDOR') {
+      router.setParams({ applyLoan: undefined });
+      handleOpenLendersModal();
+    }
+  }, [applyLoan, user?.role]);
 
 
 
@@ -323,7 +372,7 @@ export default function DashboardScreen() {
     const intRate = parseFloat(proposedInterest) || 12.5;
 
     if (isNaN(amt) || amt <= 0 || amt > 500000) {
-      showToast('❌ Please enter a valid amount');
+      showToast('Invalid Amount. Please enter a valid numerical value.', 'error');
       return;
     }
 
@@ -342,10 +391,10 @@ export default function DashboardScreen() {
     
     if (error) {
       console.error("Insert error", error);
-      showToast('❌ Failed to send proposal.');
+      showToast('Submission Failed. Unable to process loan proposal.', 'error');
     } else {
       const lenderName = selectedLender?.name || 'Lender';
-      showToast(`✅ Proposal sent to ${lenderName}!`);
+      showToast(`Proposal Submitted. Awaiting review from ${lenderName}.`, 'success');
     }
     setSelectedLender(null);
   };
@@ -364,14 +413,14 @@ export default function DashboardScreen() {
     setSupplierCount(c => c + 1);
     setSupplierName('');
     setSupplierModalVisible(false);
-    showToast(`🔗 Linked to ${supplierName} successfully!`);
+    showToast(`Supplier Linked. ${supplierName} added to your network.`, 'success');
   };
 
   const handleApproveCredit = async (id: string, amount: number, vendorId: string) => {
     if (!user) return;
     const { error } = await supabase.from('loan_offers').update({ status: 'ACCEPTED', accepted_at: new Date().toISOString() }).eq('id', id);
     if (error) {
-      showToast('❌ Failed to approve loan.');
+      showToast('Approval Failed. Unable to process disbursement.', 'error');
     } else {
       const { data: lenderData } = await supabase.from('profiles').select('name').eq('id', user.id).single();
       const { data: vendorData } = await supabase.from('profiles').select('name').eq('id', vendorId).single();
@@ -392,16 +441,16 @@ export default function DashboardScreen() {
         type: 'ADD',
         description: `Loan Received from ${lenderName}`
       });
-      showToast('✅ Loan approved & disbursed!');
+      showToast('Disbursement Successful. Funds have been deposited.', 'success');
     }
   };
 
   const handleDeclineCredit = async (id: string) => {
     const { error } = await supabase.from('loan_offers').update({ status: 'DECLINED' }).eq('id', id);
     if (error) {
-      showToast('❌ Failed to decline loan.');
+      showToast('Action Failed. Unable to process decline request.', 'error');
     } else {
-      showToast('ℹ️ Loan application declined.');
+      showToast('Application Declined. Request has been closed.', 'info');
     }
   };
 
@@ -542,13 +591,13 @@ export default function DashboardScreen() {
         {/* Recent Activity Section */}
         <View style={styles.activityHeaderRow}>
           <Text style={styles.activitySectionTitle}>Recent Activity</Text>
-          <Pressable onPress={() => showToast('ℹ️ Displaying recent ledger items.')}>
+          <Pressable onPress={() => router.push('/wallet')}>
             <Text style={styles.activitySeeAll}>See All</Text>
           </Pressable>
         </View>
 
         <View style={styles.activityListContainer}>
-          {walletTransactions.length > 0 ? walletTransactions.map((item) => {
+          {walletTransactions.length > 0 ? walletTransactions.slice(0, 5).map((item) => {
             const isPositive = item.type === 'ADD';
             return (
               <View key={item.id} style={styles.activityCard}>
@@ -627,14 +676,14 @@ export default function DashboardScreen() {
         </View>
         <View style={styles.lenderNavRight}>
           <Pressable 
-            onPress={() => showToast('ℹ️ Notification center opened.')}
+            onPress={() => showToast('Notifications. Viewing recent alerts.', 'info')}
             style={styles.lenderNavIconBtn}
           >
             <SymbolView name="notifications" size={24} tintColor="#534435" />
             <View style={styles.lenderNavBadge} />
           </Pressable>
           <Pressable 
-            onPress={() => showToast('ℹ️ Settings opened.')}
+            onPress={() => showToast('Settings. Managing account preferences.', 'info')}
             style={styles.lenderNavIconBtn}
           >
             <SymbolView name="settings" size={24} tintColor="#534435" />
@@ -715,7 +764,7 @@ export default function DashboardScreen() {
           </Pressable>
 
           <Pressable 
-            onPress={() => showToast('ℹ️ Apply for new loan limit.')}
+            onPress={() => showToast('Credit Limit. Initiating limit increase request.', 'info')}
             style={styles.lenderActionBtn}
           >
             <View style={[styles.lenderActionIconBg, { backgroundColor: '#d4820a' }]}>
@@ -725,7 +774,7 @@ export default function DashboardScreen() {
           </Pressable>
 
           <Pressable 
-            onPress={() => showToast('ℹ️ Portfolio tracker.')}
+            onPress={() => showToast('Portfolio. Viewing financial summary.', 'info')}
             style={styles.lenderActionBtn}
           >
             <View style={styles.lenderActionIconBg}>
@@ -735,7 +784,7 @@ export default function DashboardScreen() {
           </Pressable>
 
           <Pressable 
-            onPress={() => showToast('ℹ️ At-Risk loans audit.')}
+            onPress={() => showToast('Risk Audit. Analyzing portfolio health.', 'info')}
             style={styles.lenderActionBtn}
           >
             <View style={[styles.lenderActionIconBg, { backgroundColor: 'rgba(192, 57, 43, 0.1)' }]}>
@@ -754,7 +803,7 @@ export default function DashboardScreen() {
                 <Text style={styles.lenderBadgeText}>{pendingOffers.length}</Text>
               </View>
             </View>
-            <Pressable onPress={() => showToast('Viewing all pending applications.')}>
+            <Pressable onPress={() => showToast('Applications. Viewing pending requests.', 'info')}>
               <Text style={styles.lenderViewAll}>VIEW ALL</Text>
             </Pressable>
           </View>
@@ -887,11 +936,7 @@ export default function DashboardScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: isLender ? '#fdf9f3' : '#F9F5EF' }]}>
-      {toastMessage && (
-        <View style={styles.toastContainer}>
-          <Text style={styles.toastText}>{toastMessage}</Text>
-        </View>
-      )}
+
 
       {isLender && renderLenderTopAppBar()}
 
@@ -916,7 +961,7 @@ export default function DashboardScreen() {
         <BottomTabBar 
           activeTab="home"
           userRole={user?.role}
-          onCenterPress={() => setLendersModalVisible(true)}
+          onCenterPress={handleOpenLendersModal}
 
           onAccountPress={() => setAccountModalVisible(true)}
         />

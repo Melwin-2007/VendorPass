@@ -25,6 +25,7 @@ export function BottomTabBar({
   
   const defaultHomePress = () => router.push('/(tabs)');
   const defaultWalletPress = () => router.push('/wallet');
+  const defaultCenterPress = () => router.push('/(tabs)?applyLoan=true');
 
   // Only render for vendors (not lenders)
   if (userRole === 'LENDER') return null;
@@ -56,7 +57,7 @@ export function BottomTabBar({
       <View style={styles.centerTabContainer}>
         <Pressable 
           style={({ pressed }) => [styles.centerTabButton, { transform: [{ scale: pressed ? 0.95 : 1.0 }] }]}
-          onPress={onCenterPress}
+          onPress={onCenterPress || defaultCenterPress}
         >
           <SymbolView tintColor="#ffffff" name="payments" size={26} />
         </Pressable>
