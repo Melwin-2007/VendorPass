@@ -1398,13 +1398,28 @@ export default function DashboardScreen() {
             </View>
 
             <ScrollView contentContainerStyle={styles.insightsScroll}>
-              <View style={styles.insightsSummaryCard}>
-                <SymbolView name="sparkles" size={32} tintColor="#D4820A" />
-                <Text style={styles.insightsSummaryText}>
-                  Your TrustScore is actively monitored by VendorPass AI. 
-                  Every 5 minutes acts as a virtual month. Make your EMI payments to build your score!
-                </Text>
-              </View>
+              {(() => {
+                let summaryText = "Your TrustScore is actively monitored by VendorPass AI. Every 5 minutes acts as a virtual month. Make your EMI payments to build your score!";
+                let summaryColor = "#D4820A";
+                
+                if (activeTrustScoreData?.history && activeTrustScoreData.history.length > 0) {
+                  const latest = activeTrustScoreData.history[0];
+                  if (latest.score_change < 0) {
+                    summaryText = `Warning: Your score recently dropped by ${Math.abs(latest.score_change)} points. Please ensure timely EMI payments to recover your standing.`;
+                    summaryColor = "#E74C3C";
+                  } else if (latest.score_change > 0) {
+                    summaryText = `Great job! Your score recently increased by ${latest.score_change} points. Keep up the good work to unlock higher credit limits.`;
+                    summaryColor = "#2D7D46";
+                  }
+                }
+
+                return (
+                  <View style={[styles.insightsSummaryCard, { borderColor: summaryColor, backgroundColor: summaryColor + '10' }]}>
+                    <SymbolView name="sparkles" size={32} tintColor={summaryColor} />
+                    <Text style={styles.insightsSummaryText}>{summaryText}</Text>
+                  </View>
+                );
+              })()}
 
               <Text style={styles.insightsTimelineLabel}>SCORE HISTORY</Text>
               

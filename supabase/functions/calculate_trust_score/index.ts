@@ -84,6 +84,10 @@ serve(async (req) => {
 5. Output structured JSON exactly matching the schema below.
 6. Score Improvement Recommendations & Mistakes to Avoid: Provide 3 actionable tips and 3 mistakes to avoid.
 
+### ⚠️ Accelerated Demo Timeline (CRITICAL)
+For all logic, trend analysis, and time-based penalties, you MUST assume the application's accelerated physics engine is active: **5 real-world minutes equals 1 in-app month**.
+If you see timestamps showing 5 minutes of inactivity between EMI payments or transactions, treat that as a vendor missing an entire month's payment and apply severe penalties accordingly. All monthly metrics must be scaled to this 5-minute window. Do not penalize them for "all activity happening in 3 days" because 3 days in real-world time equals over 2 years of in-app time.
+
 EXPECTED JSON SCHEMA:
 {
   "vendor_id": "V-00123",
