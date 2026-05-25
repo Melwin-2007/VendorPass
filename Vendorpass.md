@@ -162,3 +162,11 @@ npm start
 * Added eligibility guardrails to block the "Apply" modal if the vendor currently holds an active (not fully paid off) or pending loan.
 * Limited "Recent Activity" ledger to 5 entries and linked "See All" directly to the Wallet interface.
 * Corrected visual Trend Text to calculate dynamically against the baseline score of `620`.
+
+### 5. TrustScore AI Insights Engine
+* **Dynamic AI Prompts**: Edge Functions (like `calculate_trust_score`) are explicitly instructed to calculate metrics using the `5 real-world minutes = 1 in-app month` rule to avoid falsely penalizing short-time spans as "distressed" financial patterns.
+* **Score History Ledger**: `trust_score_data` Postgres JSONB now tracks a complete `history` array. Both the pg_cron overdue function and the manual repayment methods (`history.tsx`) prepend structured narrative objects (`timestamp`, `score_change`, `type`, `narrative`).
+* **AI Score Insights UI**: 
+  * A new "View AI Score Insights" button on the Vendor Dashboard triggers a dynamic Credit Report Modal.
+  * The modal reads the latest `history` block and dynamically updates the summary card (turning green for recent score bumps, and red for recent drops).
+  * A vertical scrollable timeline renders every narrative chronologically with color-coded impacts.
