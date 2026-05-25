@@ -10,6 +10,7 @@ import {
   TextInput,
   Image,
   TouchableOpacity,
+  ActivityIndicator,
 } from 'react-native';
 import { BottomTabBar, LenderBottomTabBar } from '@/components/BottomTabBar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -52,10 +53,11 @@ function SparkleWatermark() {
 }
 
 export default function DashboardScreen() {
-  const { user, signOut } = useAuth();
+  const { user, signOut, loading } = useAuth();
   const theme = useTheme();
   const safeAreaInsets = useSafeAreaInsets();
   const { applyLoan } = useLocalSearchParams<{ applyLoan?: string }>();
+
 
   const insets = {
     ...safeAreaInsets,
@@ -125,6 +127,7 @@ export default function DashboardScreen() {
   const [isCalculating, setIsCalculating] = useState(false);
   const activeTrustScoreData = localTrustScoreData || user?.trustScoreData;
   const currentScore = activeTrustScoreData?.trust_score ?? user?.score ?? 742;
+  const [isInsightsModalVisible, setIsInsightsModalVisible] = useState(false);
 
   const [activities, setActivities] = useState([
     { id: '1', type: 'PAYMENT', title: 'Amul Distributors', date: 'Today, 10:30 AM', amount: '- ₹4,200', status: 'completed' },
@@ -132,31 +135,6 @@ export default function DashboardScreen() {
     { id: '3', type: 'SALE', title: 'Loan Disbursement', date: 'Oct 24, 2023', amount: '+ ₹15,000', status: 'verified' },
   ]);
 
-  // Lender applicants queue state
-  const [applicants, setApplicants] = useState([
-    {
-      id: '101',
-      name: 'Meera Sharma',
-      score: 842,
-      amount: '₹45,000',
-      rate: '12% p.a.',
-      date: 'Today',
-      risk: 'Low Risk',
-      note: 'Inventory for festival season sale',
-      image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuAlgj-SJy7IHHN72FxR0ksw9nM_XrQpT4CDw_-cf7XWWW3dGev-D7RrwT5t01Jjh9SC4mPC4V72WbitqBuxaang7oo5_1RNOweXOjkLpUEQiI6VM9qNtBGbdtINFD_1tCcctKfd3S9YQXPcSyZOGjFNvmYK-I3Z1kWnVfeBtMZZfSRlX9Ixyo_i322Hmo4RCrCVfMZUl6pIdFZAF7AUYxALh1sSDJykFkLtVia9Fehqnn39siVkTBQ_F8WeSDNBCMApg9u7YLxNIXlV'
-    },
-    {
-      id: '102',
-      name: 'Rajesh G.',
-      score: 710,
-      amount: '₹1,20,000',
-      rate: '14% p.a.',
-      date: 'Yesterday',
-      risk: 'Mid Risk',
-      note: 'Store expansion & renovation',
-      image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuDzzSuHOpEJn-7xe_AibaeP3BNgyVm1sqY9bXQ5vIYvcq-79NQCh2y_iFSBGk36s3oybmkVsCRLc51jEdrOBqHM5E55whcfLhJqMiK32jyP2wIkyr3jqZ0rDwBbjYxu6IeDiI81XyIwD1nrloftvPQ02rxFV0Qr-0eSMEUYcMaQmUXDwg7sQ-besw5_7gDFh78oFgPGVOUwjNNWBYEH5WYnqwJYKzRUP4bzbta3oOY7dwj7h_8YaJ5zTJA-xv3FC8rhF79eRsCcKXh3'
-    }
-  ]);
 
   // Animate the gauge when currentScore changes
   useEffect(() => {
@@ -231,7 +209,7 @@ export default function DashboardScreen() {
       const fetchLenderData = async () => {
         const { data, error } = await supabase
           .from('loan_offers')
-          .select('*, profiles!loan_offers_vendor_id_fkey(name, selfie, score)')
+          .select('*, profiles:profiles!vendor_id(name, selfie, score)')
           .eq('lender_id', user.id)
           .order('created_at', { ascending: false });
 
@@ -566,6 +544,13 @@ export default function DashboardScreen() {
               {scoreDelta === 0 ? 'No change this month' : `${trendPrefix}${Math.abs(scoreDelta)} this month`}
             </Text>
           </View>
+          <Pressable 
+            style={styles.heroInsightsBtn}
+            onPress={() => setIsInsightsModalVisible(true)}
+          >
+            <SymbolView name="sparkles" size={16} tintColor="#D4820A" />
+            <Text style={styles.heroInsightsBtnText}>View AI Score Insights</Text>
+          </Pressable>
 
           <View style={styles.heroDivider} />
 
@@ -704,8 +689,8 @@ export default function DashboardScreen() {
 
 
   const renderLenderDashboard = () => {
-    const acceptedOffers = lenderOffers.filter(o => o.status === 'ACCEPTED');
-    const pendingOffers = lenderOffers.filter(o => o.status === 'PENDING');
+    const acceptedOffers = lenderOffers.filter(o => o.status === 'ACCEPTED' && o.profiles?.name && o.profiles.name.trim() !== '');
+    const pendingOffers = lenderOffers.filter(o => o.status === 'PENDING' && o.profiles?.name && o.profiles.name.trim() !== '');
     
     const totalCapital = acceptedOffers.reduce((sum, o) => sum + Number(o.amount), 0);
     const activeLoansCount = acceptedOffers.length;
@@ -729,48 +714,6 @@ export default function DashboardScreen() {
         {/* Hero Portfolio Card */}
         <LenderPortfolioCard portfolioStats={portfolioStats} monthlyYields={monthlyYields} />
 
-        {/* Quick Actions Row */}
-        <View style={styles.lenderQuickActions}>
-          <Pressable 
-            onPress={() => router.push('/(tabs)/explore')}
-            style={styles.lenderActionBtn}
-          >
-            <View style={styles.lenderActionIconBg}>
-              <SymbolView name="search" size={24} tintColor="#895100" />
-            </View>
-            <Text style={styles.lenderActionText}>Browse Vendors</Text>
-          </Pressable>
-
-          <Pressable 
-            onPress={() => showToast('Credit Limit. Initiating limit increase request.', 'info')}
-            style={styles.lenderActionBtn}
-          >
-            <View style={[styles.lenderActionIconBg, { backgroundColor: '#d4820a' }]}>
-              <SymbolView name="add" size={24} tintColor="#ffffff" />
-            </View>
-            <Text style={[styles.lenderActionText, { color: '#895100', fontWeight: 'bold' }]}>New Loan</Text>
-          </Pressable>
-
-          <Pressable 
-            onPress={() => showToast('Portfolio. Viewing financial summary.', 'info')}
-            style={styles.lenderActionBtn}
-          >
-            <View style={styles.lenderActionIconBg}>
-              <SymbolView name="pie_chart" size={24} tintColor="#534435" />
-            </View>
-            <Text style={styles.lenderActionText}>Portfolio</Text>
-          </Pressable>
-
-          <Pressable 
-            onPress={() => showToast('Risk Audit. Analyzing portfolio health.', 'info')}
-            style={styles.lenderActionBtn}
-          >
-            <View style={[styles.lenderActionIconBg, { backgroundColor: 'rgba(192, 57, 43, 0.1)' }]}>
-              <SymbolView name="warning" size={24} tintColor="#C0392B" />
-            </View>
-            <Text style={[styles.lenderActionText, { color: '#C0392B' }]}>At-Risk</Text>
-          </Pressable>
-        </View>
 
         {/* Pending Approvals Section */}
         <View style={styles.lenderSectionContainer}>
@@ -856,6 +799,39 @@ export default function DashboardScreen() {
             {acceptedOffers.length > 0 ? (
               acceptedOffers.map((loan, index) => {
                 const emi = Math.round((Number(loan.amount) * (1 + Number(loan.interest_rate) / 100)) / parseInt(loan.tenure));
+                const totalPaid = Number(loan.amount_paid) || 0;
+                const totalLoan = Number(loan.amount) + (Number(loan.amount) * (Number(loan.interest_rate) / 100));
+                const progressPct = Math.min((totalPaid / totalLoan) * 100, 100);
+                
+                const startDate = new Date(loan.accepted_at || loan.created_at);
+                const now = new Date();
+                const diffMs = Math.max(0, now.getTime() - startDate.getTime());
+                const monthsElapsed = Math.floor(diffMs / (5 * 60 * 1000)); // 5 minutes = 1 month in this project
+                const expectedPaid = Math.min(monthsElapsed * emi, totalLoan);
+
+                let badgeStyle = styles.lenderActiveBadgeGreen;
+                let badgeTextStyle = styles.lenderActiveBadgeTextGreen;
+                let badgeText = 'ON TRACK';
+                let progressColor = '#2D7D46';
+
+                if (progressPct >= 100) {
+                  badgeText = 'PAID';
+                  badgeStyle = styles.lenderActiveBadgeGreen;
+                  badgeTextStyle = styles.lenderActiveBadgeTextGreen;
+                } else if (totalPaid < expectedPaid) {
+                  badgeText = 'OVERDUE';
+                  badgeStyle = styles.lenderActiveBadgeRed;
+                  badgeTextStyle = styles.lenderActiveBadgeTextRed;
+                  progressColor = '#C0392B';
+                } else if (monthsElapsed === 0 && totalPaid === 0) {
+                  badgeText = 'NEW';
+                  badgeStyle = styles.lenderActiveBadgeOrange;
+                  badgeTextStyle = styles.lenderActiveBadgeTextOrange;
+                  progressColor = '#D4820A';
+                }
+
+                let bottomText = progressPct >= 100 ? 'COMPLETED' : (monthsElapsed === 0 && totalPaid === 0 ? 'NEW' : `${monthsElapsed} MO IN`);
+
                 return (
                   <View key={loan.id} style={styles.lenderActiveCard}>
                     <View style={styles.lenderActiveCardTop}>
@@ -870,18 +846,18 @@ export default function DashboardScreen() {
                       </View>
                       <View style={styles.lenderActiveRight}>
                         <Text style={styles.lenderActiveAmount}>₹{Number(loan.amount).toLocaleString('en-IN')}</Text>
-                        <View style={styles.lenderActiveBadgeGreen}>
-                          <Text style={styles.lenderActiveBadgeTextGreen}>ON TRACK</Text>
+                        <View style={badgeStyle}>
+                          <Text style={badgeTextStyle}>{badgeText}</Text>
                         </View>
                       </View>
                     </View>
                     <View style={styles.lenderProgressContainer}>
                       <View style={styles.lenderProgressLabelRow}>
                         <Text style={styles.lenderProgressLabel}>{loan.tenure.toUpperCase()}</Text>
-                        <Text style={styles.lenderProgressLabel}>NEW</Text>
+                        <Text style={styles.lenderProgressLabel}>{bottomText}</Text>
                       </View>
                       <View style={styles.lenderProgressBarBg}>
-                        <View style={[styles.lenderProgressBarFill, { width: '10%', backgroundColor: '#2D7D46' }]} />
+                        <View style={[styles.lenderProgressBarFill, { width: `${progressPct}%`, backgroundColor: progressColor }]} />
                       </View>
                     </View>
                   </View>
@@ -909,6 +885,14 @@ export default function DashboardScreen() {
       </View>
     );
   };
+
+  if (loading) {
+    return (
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+        <ActivityIndicator size="large" color="#d4820a" />
+      </View>
+    );
+  }
 
   const isLender = user?.role === 'LENDER';
 
@@ -1396,6 +1380,61 @@ export default function DashboardScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* AI Score Insights Modal */}
+      <Modal
+        visible={isInsightsModalVisible}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setIsInsightsModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.insightsModalContent}>
+            <View style={styles.insightsModalHeader}>
+              <Text style={styles.insightsModalTitle}>AI Score Insights</Text>
+              <Pressable onPress={() => setIsInsightsModalVisible(false)} style={styles.modalCloseBtn}>
+                <SymbolView tintColor="#534435" name="xmark" size={24} />
+              </Pressable>
+            </View>
+
+            <ScrollView contentContainerStyle={styles.insightsScroll}>
+              <View style={styles.insightsSummaryCard}>
+                <SymbolView name="sparkles" size={32} tintColor="#D4820A" />
+                <Text style={styles.insightsSummaryText}>
+                  Your TrustScore is actively monitored by VendorPass AI. 
+                  Every 5 minutes acts as a virtual month. Make your EMI payments to build your score!
+                </Text>
+              </View>
+
+              <Text style={styles.insightsTimelineLabel}>SCORE HISTORY</Text>
+              
+              {(!activeTrustScoreData?.history || activeTrustScoreData.history.length === 0) ? (
+                <View style={styles.insightsEmptyState}>
+                  <Text style={styles.insightsEmptyText}>No score changes recorded yet.</Text>
+                </View>
+              ) : (
+                activeTrustScoreData.history.map((item: any, idx: number) => {
+                  const isPositive = item.score_change >= 0;
+                  return (
+                    <View key={idx} style={styles.insightItem}>
+                      <View style={[styles.insightDot, { backgroundColor: isPositive ? '#2D7D46' : '#E74C3C' }]} />
+                      <View style={styles.insightContent}>
+                        <View style={styles.insightContentHeader}>
+                          <Text style={styles.insightDate}>{new Date(item.timestamp).toLocaleDateString()} {new Date(item.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</Text>
+                          <Text style={[styles.insightScoreChange, { color: isPositive ? '#2D7D46' : '#E74C3C' }]}>
+                            {isPositive ? '+' : ''}{item.score_change}
+                          </Text>
+                        </View>
+                        <Text style={styles.insightNarrative}>{item.narrative}</Text>
+                      </View>
+                    </View>
+                  );
+                })
+              )}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -1540,6 +1579,23 @@ const styles = StyleSheet.create({
     borderRadius: 90,
     borderWidth: 1.5,
     borderColor: 'rgba(255, 255, 255, 0.05)',
+  },
+  heroInsightsBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#D4820A15',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+    marginTop: 20,
+    gap: 6,
+  },
+  heroInsightsBtnText: {
+    color: '#D4820A',
+    fontSize: 12,
+    fontWeight: '700',
+    fontFamily: Platform.OS === 'web' ? 'Sora' : 'sans-serif',
   },
   heroLabel: {
     color: 'rgba(255, 255, 255, 0.6)',
@@ -3204,5 +3260,97 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     fontSize: 14,
     fontFamily: Platform.OS === 'web' ? 'Sora' : 'sans-serif',
+  },
+  insightsModalContent: {
+    backgroundColor: '#fff',
+    borderRadius: 24,
+    padding: 24,
+    width: '90%',
+    maxHeight: '80%',
+  },
+  insightsModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  insightsModalTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#1c1c18',
+    fontFamily: Platform.OS === 'web' ? 'Sora' : 'sans-serif',
+  },
+  insightsScroll: {
+    paddingBottom: 24,
+  },
+  insightsSummaryCard: {
+    backgroundColor: '#FFF8F0',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 24,
+    borderWidth: 1,
+    borderColor: '#F0E0C9',
+  },
+  insightsSummaryText: {
+    marginTop: 12,
+    fontSize: 14,
+    lineHeight: 20,
+    color: '#534435',
+    fontFamily: Platform.OS === 'web' ? 'DM Sans' : 'sans-serif',
+  },
+  insightsTimelineLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#8E8E93',
+    letterSpacing: 1.2,
+    marginBottom: 16,
+    fontFamily: Platform.OS === 'web' ? 'Sora' : 'sans-serif',
+  },
+  insightItem: {
+    flexDirection: 'row',
+    marginBottom: 20,
+  },
+  insightDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    marginTop: 4,
+    marginRight: 16,
+  },
+  insightContent: {
+    flex: 1,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F2F2F7',
+    paddingBottom: 16,
+  },
+  insightContentHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 6,
+  },
+  insightDate: {
+    fontSize: 12,
+    color: '#8E8E93',
+    fontFamily: Platform.OS === 'web' ? 'JetBrains Mono' : 'monospace',
+  },
+  insightScoreChange: {
+    fontSize: 14,
+    fontWeight: '700',
+    fontFamily: Platform.OS === 'web' ? 'Sora' : 'sans-serif',
+  },
+  insightNarrative: {
+    fontSize: 14,
+    lineHeight: 20,
+    color: '#1c1c18',
+    fontFamily: Platform.OS === 'web' ? 'DM Sans' : 'sans-serif',
+  },
+  insightsEmptyState: {
+    alignItems: 'center',
+    paddingVertical: 32,
+  },
+  insightsEmptyText: {
+    color: '#8E8E93',
+    fontSize: 14,
+    fontFamily: Platform.OS === 'web' ? 'DM Sans' : 'sans-serif',
   },
 });

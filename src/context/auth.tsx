@@ -131,7 +131,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return false;
     }
 
-    setLoading(false);
     return true;
   };
 
@@ -165,7 +164,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     setSignupProgress(1.0);
-    setLoading(false);
     return true;
   };
 

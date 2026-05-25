@@ -24,13 +24,14 @@ export default function RepaymentsScreen() {
       const fetchRepayments = async () => {
         const { data, error } = await supabase
           .from('loan_offers')
-          .select('*, profiles!loan_offers_vendor_id_fkey(name, selfie, business_photo)')
+          .select('*, profiles:profiles!vendor_id(name, selfie, business_photo)')
           .eq('lender_id', user.id)
           .eq('status', 'ACCEPTED')
           .order('created_at', { ascending: false });
 
-        if (!error && data) {
-          setRepayments(data);
+        if (data) {
+          const validData = data.filter((o: any) => o.profiles?.name && o.profiles.name.trim() !== '');
+          setRepayments(validData);
         }
       };
 

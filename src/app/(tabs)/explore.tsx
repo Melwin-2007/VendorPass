@@ -182,58 +182,12 @@ interface Opportunity {
   funding_status?: string;
 }
 
-const defaultOpportunities: Opportunity[] = [
-  {
-    id: 'opp-1',
-    name: "Priya's Organic Mart",
-    category: 'Retail',
-    location: 'Bengaluru',
-    score: 842,
-    amount: '₹30,000',
-    tenure: '6 months',
-    note: 'inventory expansion for the festive season',
-    interest: '4 Lenders interested',
-    image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuAlgj-SJy7IHHN72FxR0ksw9nM_XrQpT4CDw_-cf7XWWW3dGev-D7RrwT5t01Jjh9SC4mPC4V72WbitqBuxaang7oo5_1RNOweXOjkLpUEQiI6VM9qNtBGbdtINFD_1tCcctKfd3S9YQXPcSyZOGjFNvmYK-I3Z1kWnVfeBtMZZfSRlX9Ixyo_i322Hmo4RCrCVfMZUl6pIdFZAF7AUYxALh1sSDJykFkLtVia9Fehqnn39siVkTBQ_F8WeSDNBCMApg9u7YLxNIXlV',
-    avatars: [
-      'https://lh3.googleusercontent.com/aida-public/AB6AXuA3hLQjdNWbXnIL9iJKiflOBCYQepD67FLny_XMmVvlbMB1INZ9WOVcww8F1O4yV41f5Vj8zm04GtGfxxTE1mAjFWoqtdOF6RTJc0WyDnAWWqPm9jQUcIwNqUL-XnH0TN0cXlwmDsy3EMjKDqBMeYoY6oKSwui1Xnicj61EaQbPSo0gUOifnx5TIcDCQ0GlRoCPmOb67C5r0A6TOnL0GTv_KRoBnCSrvmnb41itPQhebSP-u9C4jgXRvLXXIVMlbFBDWfSqRcqRDSzI',
-      'https://lh3.googleusercontent.com/aida-public/AB6AXuDzzSuHOpEJn-7xe_AibaeP3BNgyVm1sqY9bXQ5vIYvcq-79NQCh2y_iFSBGk36s3oybmkVsCRLc51jEdrOBqHM5E55whcfLhJqMiK32jyP2wIkyr3jqZ0rDwBbjYxu6IeDiI81XyIwD1nrloftvPQ02rxFV0Qr-0eSMEUYcMaQmUXDwg7sQ-besw5_7gDFh78oFgPGVOUwjNNWBYEH5WYnqwJYKzRUP4bzbta3oOY7dwj7h_8YaJ5zTJA-xv3FC8rhF79eRsCcKXh3'
-    ]
-  },
-  {
-    id: 'opp-2',
-    name: 'Artisan Ceramics',
-    category: 'Crafts',
-    location: 'Mysore',
-    score: 715,
-    amount: '₹50,000',
-    tenure: '12 months',
-    note: 'new kiln equipment',
-    interest: '1 Lender interested',
-    image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuDzzSuHOpEJn-7xe_AibaeP3BNgyVm1sqY9bXQ5vIYvcq-79NQCh2y_iFSBGk36s3oybmkVsCRLc51jEdrOBqHM5E55whcfLhJqMiK32jyP2wIkyr3jqZ0rDwBbjYxu6IeDiI81XyIwD1nrloftvPQ02rxFV0Qr-0eSMEUYcMaQmUXDwg7sQ-besw5_7gDFh78oFgPGVOUwjNNWBYEH5WYnqwJYKzRUP4bzbta3oOY7dwj7h_8YaJ5zTJA-xv3FC8rhF79eRsCcKXh3',
-    avatars: [
-      'https://lh3.googleusercontent.com/aida-public/AB6AXuA3hLQjdNWbXnIL9iJKiflOBCYQepD67FLny_XMmVvlbMB1INZ9WOVcww8F1O4yV41f5Vj8zm04GtGfxxTE1mAjFWoqtdOF6RTJc0WyDnAWWqPm9jQUcIwNqUL-XnH0TN0cXlwmDsy3EMjKDqBMeYoY6oKSwui1Xnicj61EaQbPSo0gUOifnx5TIcDCQ0GlRoCPmOb67C5r0A6TOnL0GTv_KRoBnCSrvmnb41itPQhebSP-u9C4jgXRvLXXIVMlbFBDWfSqRcqRDSzI'
-    ]
-  },
-  {
-    id: 'opp-3',
-    name: 'TechFix Solutions',
-    category: 'Services',
-    location: 'Mumbai',
-    score: 620,
-    amount: '₹15,000',
-    tenure: '3 months',
-    note: 'spare parts inventory',
-    interest: 'High yield potential',
-    image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuBp-aRKkGDKeuwqhPEmq7g1UC6fAJe7VnCjIBkl8xQ_owajzWgfUPWgUMJOIyoiN0LKTUspoZaFUGMsePMDyMvyc8wOY0Ht8h_r-OZXBP_HQCuvHb2y_yMdS0aE_gbQkkTv3Lfk4ygKkKjRhjN_MvU6GCEuVhiMMajr7ZRd8kQ8WKCxD3dRBu_V3DmsoDaRhR4lC0m7DzQz96jcsebEXvsWN9aBxHGSMpo1wqkYa05F8THygZ30zTg55ArV1Ig9JnHR1x12es4h9pO8',
-    avatars: []
-  }
-];
 
 function LenderBrowseScreen() {
   
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedFilter, setSelectedFilter] = useState('Near Me');
-  const [opportunities, setOpportunities] = useState<Opportunity[]>(defaultOpportunities);
+  const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
   const [watchlists, setWatchlists] = useState<string[]>([]);
   const [loanOffers, setLoanOffers] = useState<string[]>([]);
   const { user } = useAuth();
@@ -261,7 +215,8 @@ function LenderBrowseScreen() {
       }
 
       if (data && data.length > 0) {
-        const mapped = data.map((profile) => {
+        const validProfiles = data.filter(profile => !!profile.name && profile.name.trim() !== '');
+        const mapped = validProfiles.map((profile) => {
           const rawScore = profile.score || 600;
           const proposedAmt = rawScore >= 750 ? 30000 : rawScore >= 650 ? 50000 : 15000;
           const tenureVal = rawScore >= 750 ? '6 months' : rawScore >= 650 ? '12 months' : '3 months';
@@ -271,7 +226,7 @@ function LenderBrowseScreen() {
           
           return {
             id: profile.id,
-            name: profile.name || 'Anonymous Vendor',
+            name: profile.name,
             category: cat,
             location: 'Bengaluru',
             score: rawScore,
@@ -285,14 +240,9 @@ function LenderBrowseScreen() {
           };
         });
 
-        // Deduplicate default values in case user registers with the same names
-        const filteredDefault = defaultOpportunities.filter(
-          def => !mapped.some(m => m.name.toLowerCase() === def.name.toLowerCase())
-        );
-
-        setOpportunities([...mapped, ...filteredDefault]);
+        setOpportunities(mapped);
       } else {
-        setOpportunities(defaultOpportunities);
+        setOpportunities([]);
       }
     };
 
@@ -537,28 +487,6 @@ function LenderBrowseScreen() {
             <Text style={[styles.pillText, selectedFilter === 'Micro-Retail' && styles.pillTextActive]}>Micro-Retail</Text>
           </Pressable>
         </ScrollView>
-
-        {/* Side-by-Side Stats Cards */}
-        <View style={styles.statsCardsRow}>
-          <View style={styles.statsCard}>
-            <View style={styles.statsCardInfo}>
-              <Text style={styles.statsCardLabel}>VERIFIED TODAY</Text>
-              <Text style={styles.statsCardValue}>128+</Text>
-            </View>
-            <View style={styles.cardWatermarkContainer}>
-              <SymbolView name="verified_user" size={44} tintColor="rgba(45, 125, 70, 0.08)" />
-            </View>
-          </View>
-          <View style={styles.statsCard}>
-            <View style={styles.statsCardInfo}>
-              <Text style={styles.statsCardLabel}>TOTAL VOLUME</Text>
-              <Text style={styles.statsCardValue}>₹4.2M</Text>
-            </View>
-            <View style={styles.cardWatermarkContainer}>
-              <SymbolView name="analytics" size={44} tintColor="rgba(68, 98, 116, 0.08)" />
-            </View>
-          </View>
-        </View>
 
         {/* Top Opportunities Section Header */}
         <View style={styles.oppsHeader}>

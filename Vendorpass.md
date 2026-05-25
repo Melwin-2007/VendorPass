@@ -26,6 +26,15 @@ The application dynamically alters its dashboard and layout depending on the aut
 
 ---
 
+## ⏱️ Accelerated Demo Timeline
+For testing and demonstration purposes, the application operates on an accelerated physics engine where **5 real-world minutes equals 1 in-app month**. 
+This scaling factor applies globally across:
+* **Loan Repayments**: EMI due dates and "Overdue" status calculations.
+* **TrustScore Engine**: pg_cron functions that penalize vendors for missing monthly payments.
+* **Active Loans Feed**: Lender dashboards dynamically track loan maturity based on this 5-minute cycle.
+
+---
+
 ## 💾 Database Integration & Calculations
 The project utilizes a Supabase database instance with the following schemas and integrations:
 1.  **`public.profiles`**: Synchronizes auth signups with user metadata (`name`, `role`, `selfie`, `business_photo`, `score`).

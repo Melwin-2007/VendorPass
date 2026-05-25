@@ -35,12 +35,13 @@ export default function HistoryScreen() {
       const fetchApps = async () => {
         const { data, error } = await supabase
           .from('loan_offers')
-          .select('*, profiles!loan_offers_lender_id_fkey(name, selfie)')
+          .select('*, profiles:profiles!lender_id(name, selfie)')
           .eq('vendor_id', user.id)
           .order('created_at', { ascending: false });
         
-        if (!error && data) {
-          setVendorApplications(data);
+        if (data) {
+          const validData = data.filter((o: any) => o.profiles?.name && o.profiles.name.trim() !== '');
+          setVendorApplications(validData);
         }
       };
 
@@ -162,10 +163,25 @@ export default function HistoryScreen() {
           aiReason += ` Successfully completed the loan! Bonus +15 points.`;
         }
 
-        const { data: profile } = await supabase.from('profiles').select('score').eq('id', user.id).single();
+        const { data: profile } = await supabase.from('profiles').select('score, trust_score_data').eq('id', user.id).single();
         const newScore = Math.max(0, (profile?.score || 620) + scoreDelta);
+        const existingData = profile?.trust_score_data || {};
+        const historyArray = Array.isArray(existingData.history) ? existingData.history : [];
+        
+        const newHistoryItem = {
+          timestamp: new Date().toISOString(),
+          score_change: scoreDelta,
+          narrative: aiReason,
+          type: scoreDelta > 0 ? 'reward' : 'penalty'
+        };
+        
+        const newData = {
+          ...existingData,
+          last_updated: new Date().toISOString(),
+          history: [newHistoryItem, ...historyArray]
+        };
 
-        await supabase.from('profiles').update({ score: newScore }).eq('id', user.id);
+        await supabase.from('profiles').update({ score: newScore, trust_score_data: newData }).eq('id', user.id);
 
         await supabase.from('notifications').insert({
           user_id: user.id,

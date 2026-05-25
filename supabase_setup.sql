@@ -285,10 +285,18 @@ begin
         -- Deduct 50 points and add AI Narrative
         update public.profiles 
         set score = greatest(0, coalesce(score, 620) - 50),
-            trust_score_data = jsonb_build_object(
-              'last_updated', now(),
-              'narrative', 'Critical System Alert: Vendor completely missed an EMI payment window resulting in a 50 point TrustScore drop and Very High Risk classification.'
-            )
+            trust_score_data = jsonb_set(
+              coalesce(trust_score_data, '{}'::jsonb),
+              '{history}',
+              jsonb_build_array(
+                jsonb_build_object(
+                  'timestamp', now(),
+                  'score_change', -50,
+                  'narrative', 'Critical System Alert: Vendor completely missed an EMI payment window resulting in a 50 point TrustScore drop and Very High Risk classification.',
+                  'type', 'penalty'
+                )
+              ) || coalesce((trust_score_data->>'history')::jsonb, '[]'::jsonb)
+            ) || jsonb_build_object('last_updated', now())
         where id = offer.vendor_id;
 
         -- Notify

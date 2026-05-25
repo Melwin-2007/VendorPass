@@ -84,7 +84,7 @@ export function BottomTabBar({
 
 
 
-export function LenderBottomTabBar({ activeTab }: { activeTab: 'home' | 'browse' | 'repayments' | 'chat' }) {
+export function LenderBottomTabBar({ activeTab }: { activeTab: 'home' | 'browse' | 'portfolio' | 'repayments' | 'chat' }) {
   return (
     <View style={styles.floatingTabBar}>
       <Pressable style={styles.tabItem} onPress={() => router.push('/(tabs)')}>
@@ -108,6 +108,15 @@ export function LenderBottomTabBar({ activeTab }: { activeTab: 'home' | 'browse'
         )}
         <Text style={activeTab === 'browse' ? styles.activeTabText : styles.inactiveTabText}>Browse</Text>
       </Pressable>
+
+      <View style={styles.centerTabContainer}>
+        <Pressable 
+          style={({ pressed }) => [styles.centerTabButton, { backgroundColor: '#D4820A', borderColor: '#FFFFFF' }, { transform: [{ scale: pressed ? 0.95 : 1.0 }] }]}
+          onPress={() => router.push('/(tabs)')}
+        >
+          <SymbolView tintColor="#ffffff" name="pie_chart" size={26} />
+        </Pressable>
+      </View>
 
       <Pressable style={styles.tabItem} onPress={() => router.push('/repayments')}>
         {activeTab === 'repayments' ? (
