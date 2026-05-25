@@ -88,32 +88,49 @@ EXPECTED JSON SCHEMA:
 {
   "vendor_id": "V-00123",
   "score_date": "2026-05-23",
-  "trust_score": 718,
-  "risk_tier": "Gold",
-  "default_probability": "14.3%",
-  "recommended_loan_limit": "₹75,000",
-  "recommended_interest_band": "18–22% p.a.",
-  "repayment_frequency_suggestion": "Monthly",
+  "trust_score": 23,
+  "risk_tier": "Critical",
+  "classification_badge": "HIGH RISK — DO NOT ONBOARD",
+  "default_probability": "92%",
+  "recommended_loan_limit": "₹0",
+  "recommended_interest_band": "N/A",
+  "repayment_frequency_suggestion": "N/A",
   "pillar_scores": {
-    "income_stability": 82,
-    "cash_flow_health": 74,
-    "business_regularity": 88,
-    "payment_discipline": 70,
-    "digital_adoption": 65,
-    "risk_signals": 80
+    "income_stability": 25,
+    "cash_flow_health": 18,
+    "business_regularity": 30,
+    "payment_discipline": 35,
+    "digital_adoption": 20,
+    "risk_signals": 15
   },
-  "score_explanation": "Short summary of the score for the dashboard card.",
-  "analysis": "Detailed analysis of why the vendor got this score, breaking down specific reasons and risk factors.",
-  "improvement_tips": [
-    "Tip 1...",
-    "Tip 2...",
-    "Tip 3..."
+  "score_explanation": "Short summary...",
+  "key_findings": {
+    "financial_integrity": [
+      "There is no identifiable genuine business income.",
+      "Credits are dominated by loan disbursements."
+    ],
+    "behavioral_indicators": [
+      "All transactions occur across just 3 days with no historical pattern.",
+      "Counterparty names include 'robbery', 'gambling', 'loss'."
+    ],
+    "compliance_gaps": [
+      "Zero utility payments, zero supplier invoices.",
+      "No category tagging anywhere."
+    ]
+  },
+  "risk_signals_table": [
+    {
+      "signal": "Suspicious Counterparties",
+      "evidence": "'robbery', 'gambling', 'easy money lol'",
+      "severity": "Critical"
+    },
+    {
+      "signal": "Loan Stacking",
+      "evidence": "Multiple EMI transactions across different months",
+      "severity": "High"
+    }
   ],
-  "mistakes_to_avoid": [
-    "Mistake 1...",
-    "Mistake 2...",
-    "Mistake 3..."
-  ]
+  "final_recommendation": "Application Declined — Refer to Financial Intelligence Unit for further review."
 }
 
 Calculate the TrustScore™ on a 0-850 scale, estimate default probability, classify the risk tier, and return ONLY a JSON object that matches the requested schema exactly. Be conservative — when data is ambiguous, assume moderate risk. Explain every score in plain language a non-finance person can understand.

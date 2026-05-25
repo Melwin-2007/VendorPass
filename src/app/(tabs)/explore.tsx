@@ -302,7 +302,7 @@ function LenderBrowseScreen() {
       if (!user) return;
       const [watchRes, offerRes] = await Promise.all([
         supabase.from('watchlists').select('vendor_id').eq('lender_id', user.id),
-        supabase.from('loan_offers').select('vendor_id').eq('lender_id', user.id)
+        supabase.from('loan_offers').select('*').eq('lender_id', user.id)
       ]);
       
       if (watchRes.data) {
@@ -721,6 +721,13 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     fontFamily: Platform.OS === 'web' ? 'Sora' : 'sans-serif',
   },
+  emptySearchText: {
+    color: '#A0A0A0',
+    fontSize: 14,
+    fontWeight: 'bold',
+    fontFamily: Platform.OS === 'web' ? 'Sora' : 'sans-serif',
+  },
+
   eduCard: {
     flexDirection: 'row',
     borderWidth: 1.5,

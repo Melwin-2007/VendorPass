@@ -254,51 +254,59 @@ Return a structured JSON + human explanation:
 {
   "vendor_id": "V-00123",
   "score_date": "2026-05-23",
-  "trust_score": 718,
-  "risk_tier": "Gold",
-  "default_probability": "14.3%",
-  "recommended_loan_limit": "₹75,000",
-  "recommended_interest_band": "18–22% p.a.",
-  "repayment_frequency_suggestion": "Monthly",
+  "trust_score": 23,
+  "risk_tier": "Critical",
+  "classification_badge": "HIGH RISK — DO NOT ONBOARD",
+  "default_probability": "92%",
+  "recommended_loan_limit": "₹0",
+  "recommended_interest_band": "N/A",
+  "repayment_frequency_suggestion": "N/A",
   "pillar_scores": {
-    "income_stability": 82,
-    "cash_flow_health": 74,
-    "business_regularity": 88,
-    "payment_discipline": 70,
-    "digital_adoption": 65,
-    "risk_signals": 80
+    "income_stability": 25,
+    "cash_flow_health": 18,
+    "business_regularity": 30,
+    "payment_discipline": 35,
+    "digital_adoption": 20,
+    "risk_signals": 15
   },
-  "score_explanation": "Short summary of the score for the dashboard card. Raju's TrustScore of 718 reflects a consistently operating business...",
-  "analysis": "Detailed analysis of why the vendor got this score. For example: (1) The account is highly consistent with 24+ active days/month. (2) Moderate income volatility in Jan-Feb. (3) Low digital adoption with 45% cash transactions.",
-  "improvement_tips": [
-    "Switch ₹500+ transactions to UPI to increase digital adoption.",
-    "Set auto-pay for electricity and mobile to ensure on-time payments.",
-    "Maintain a buffer balance of ₹2,000+ in your account at all times."
+  "score_explanation": "Short summary of the score for the dashboard card.",
+  "key_findings": {
+    "financial_integrity": [
+      "There is no identifiable genuine business income.",
+      "Credits are dominated by loan disbursements."
+    ],
+    "behavioral_indicators": [
+      "All transactions occur across just 3 days with no historical pattern.",
+      "Counterparty names include 'robbery', 'gambling', 'loss'."
+    ],
+    "compliance_gaps": [
+      "Zero utility payments, zero supplier invoices.",
+      "No category tagging anywhere."
+    ]
+  },
+  "risk_signals_table": [
+    {
+      "signal": "Suspicious Counterparties",
+      "evidence": "'robbery', 'gambling', 'easy money lol'",
+      "severity": "Critical"
+    },
+    {
+      "signal": "Loan Stacking",
+      "evidence": "Multiple EMI transactions across different months",
+      "severity": "High"
+    }
   ],
-  "mistakes_to_avoid": [
-    "Avoid late utility payments as they heavily impact your payment discipline score.",
-    "Do not rely entirely on cash transactions; digital traces build your credit.",
-    "Avoid large single-day cash withdrawals immediately after receiving funds."
-  ]
+  "final_recommendation": "Application Declined — Refer to Financial Intelligence Unit for further review."
 }
 ```
 
 ---
 
-## Step 6 — Score Improvement Recommendations & Mistakes to Avoid
+## Step 6 — Key Findings & Risk Signals
 
-Always output 3 actionable tips (`improvement_tips`) to improve their score and 3 common mistakes to avoid (`mistakes_to_avoid`). 
-For example:
+Always output a `classification_badge`, categorized `key_findings`, a `risk_signals_table` evaluating severe red flags, and a `final_recommendation` box. This is a bank-grade report meant for compliance units.
 
-**Tips**:
-1. "Switch ₹500+ transactions to UPI. Each digital transaction strengthens your score."
-2. "Set auto-pay for electricity and mobile. On-time payments add up to 15 points."
-3. "Serving more customers reduces your dependency risk and boosts your score."
-
-**Mistakes**:
-1. "Avoid large single-day cash withdrawals immediately after receiving funds."
-2. "Do not miss EMI repayment windows."
-3. "Stop receiving unverified transfers with suspicious counterparty names."
+Ensure all string data is formatted professionally and brutally honest about the risks.
 
 ---
 
