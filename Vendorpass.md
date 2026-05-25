@@ -91,11 +91,65 @@ src/
 
 ---
 
-## 🛠️ Verification & Development Commands
+## 🛠️ Local Setup & Development Guide
 
-To check project health or run the local development server:
+Follow these steps to configure and run VendorPass on your local machine:
 
-*   **Run Web Server**: `npm run web`
-*   **Run Android Emulator**: `npm run android`
+### 1. Install Dependencies
+Ensure you have Node.js installed, then run:
+```bash
+npm install
+```
+
+### 2. Environment Variables
+Create a `.env` file in the root directory and add your Supabase credentials:
+```env
+EXPO_PUBLIC_SUPABASE_URL=your_supabase_project_url
+EXPO_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+```
+
+### 3. Database Setup (Supabase)
+Copy the entire contents of `supabase_setup.sql` and run it in your Supabase SQL Editor. 
+*Note: Make sure the `pg_cron` extension is enabled in your Supabase Database settings for the time-based TrustScore logic to work.*
+
+### 4. Run the Development Server
+Start the Expo Metro Bundler:
+```bash
+npm start
+```
+* **Web**: Press `w` (or run `npm run web`)
+* **Android**: Press `a` (or run `npm run android`)
+* **Clear Cache**: `npm start -- -c` (useful if you encounter module resolution errors)
+
+### 5. Verification Commands
 *   **TypeScript Validation**: `npx.cmd tsc --noEmit`
 *   **Linter Checks**: `npm run lint`
+
+---
+
+## 🚀 Recent Updates (TrustScore AI & P2P Integrations)
+
+### 1. Global Professional UI Overhaul
+* Replaced fragmented, emoji-based local toasts with the `react-native-toast-message` global provider inside `_layout.tsx`.
+* Upgraded notification copywriting across `index.tsx`, `explore.tsx`, and `history.tsx` to maintain a formal, banking-grade tone.
+
+### 2. Time-Based TrustScore Engine
+* Built `public.process_overdue_loans()` as a **pg_cron** function running every minute to enforce a strict demo lifecycle (1 month = 5 minutes).
+* **Penalty Triggers**:
+  * If a Vendor misses the payment window, they receive a "Friendly Reminder" notification.
+  * If the entire month cycle passes unaddressed, a **Severe Penalty (-50 points)** is executed directly by Postgres, injecting a negative AI Narrative into the user's `trust_score_data` profile.
+
+### 3. P2P Wallet & EMI Math
+* Updated Row-Level Security (RLS) policies on `wallet_transactions` to allow cross-user (Vendor -> Lender) insertions via `check (true)`.
+* Established standardized EMI calculation: `emi = (principal + (principal * interest / 100)) / tenure`.
+* Automated `history.tsx` repayment tracking:
+  * **On-Time Reward**: `+5 points`.
+  * **Late Penalty**: `-10 points`.
+  * **Completion Bonus**: `+15 points`.
+
+### 4. Vendor Dashboard Fixes (`index.tsx`)
+* Activated global Notification Bell with dynamic unread badging.
+* "Apply for Loan" center tab button natively redirects across all screens and auto-triggers the Lenders Modal globally.
+* Added eligibility guardrails to block the "Apply" modal if the vendor currently holds an active (not fully paid off) or pending loan.
+* Limited "Recent Activity" ledger to 5 entries and linked "See All" directly to the Wallet interface.
+* Corrected visual Trend Text to calculate dynamically against the baseline score of `620`.

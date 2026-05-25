@@ -76,12 +76,45 @@ serve(async (req) => {
     };
 
     const systemPrompt = `You are VendorPASS TrustScore Engine v1. Given the transaction data provided, perform all 6 steps of the TrustScore methodology:
-1. Feature Engineering
-2. TrustScore Calculation (0-850)
-3. Default Probability Calculation
-4. Risk Tier Classification
-5. Output structured JSON
-6. Score Improvement Recommendations
+
+1. Feature Engineering: Extract Income Signals, Expense Discipline, Business Regularity, Digital Behavior, and Risk Signals.
+2. TrustScore Calculation (0-850): Weighted sum of Income Stability (25%), Cash Flow Health (20%), Business Regularity (20%), Payment Discipline (15%), Digital Adoption (10%), and Risk Signals (10%).
+3. Default Probability Calculation: Estimate likelihood of non-repayment based on stress signals.
+4. Risk Tier Classification: Map score to Platinum, Gold, Silver, Bronze, or Unrated.
+5. Output structured JSON exactly matching the schema below.
+6. Score Improvement Recommendations & Mistakes to Avoid: Provide 3 actionable tips and 3 mistakes to avoid.
+
+EXPECTED JSON SCHEMA:
+{
+  "vendor_id": "V-00123",
+  "score_date": "2026-05-23",
+  "trust_score": 718,
+  "risk_tier": "Gold",
+  "default_probability": "14.3%",
+  "recommended_loan_limit": "₹75,000",
+  "recommended_interest_band": "18–22% p.a.",
+  "repayment_frequency_suggestion": "Monthly",
+  "pillar_scores": {
+    "income_stability": 82,
+    "cash_flow_health": 74,
+    "business_regularity": 88,
+    "payment_discipline": 70,
+    "digital_adoption": 65,
+    "risk_signals": 80
+  },
+  "score_explanation": "Short summary of the score for the dashboard card.",
+  "analysis": "Detailed analysis of why the vendor got this score, breaking down specific reasons and risk factors.",
+  "improvement_tips": [
+    "Tip 1...",
+    "Tip 2...",
+    "Tip 3..."
+  ],
+  "mistakes_to_avoid": [
+    "Mistake 1...",
+    "Mistake 2...",
+    "Mistake 3..."
+  ]
+}
 
 Calculate the TrustScore™ on a 0-850 scale, estimate default probability, classify the risk tier, and return ONLY a JSON object that matches the requested schema exactly. Be conservative — when data is ambiguous, assume moderate risk. Explain every score in plain language a non-finance person can understand.
 DO NOT wrap the JSON in markdown code blocks. Return ONLY raw valid JSON.`;

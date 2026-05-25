@@ -268,34 +268,37 @@ Return a structured JSON + human explanation:
     "digital_adoption": 65,
     "risk_signals": 80
   },
-  "key_strengths": [
-    "Highly consistent business activity — 24+ active days/month",
-    "Strong supplier relationships with 3 repeat vendors",
-    "Growing income trend over last 4 months"
+  "score_explanation": "Short summary of the score for the dashboard card. Raju's TrustScore of 718 reflects a consistently operating business...",
+  "analysis": "Detailed analysis of why the vendor got this score. For example: (1) The account is highly consistent with 24+ active days/month. (2) Moderate income volatility in Jan-Feb. (3) Low digital adoption with 45% cash transactions.",
+  "improvement_tips": [
+    "Switch ₹500+ transactions to UPI to increase digital adoption.",
+    "Set auto-pay for electricity and mobile to ensure on-time payments.",
+    "Maintain a buffer balance of ₹2,000+ in your account at all times."
   ],
-  "key_concerns": [
-    "Moderate income volatility in Jan–Feb (seasonal dip)",
-    "2 utility payments were delayed by 5–7 days",
-    "Low digital adoption — 45% cash transactions"
-  ],
-  "fraud_flags": [],
-  "data_completeness": "87%",
-  "missing_signals": ["GST data", "Insurance payments"],
-  "score_explanation": "Raju's TrustScore of 718 reflects a consistently operating business with strong supplier ties and growing revenues. The primary risk factor is mild seasonal income dips and some cash dependency. He is a reliable borrower candidate for working capital loans up to ₹75,000."
+  "mistakes_to_avoid": [
+    "Avoid late utility payments as they heavily impact your payment discipline score.",
+    "Do not rely entirely on cash transactions; digital traces build your credit.",
+    "Avoid large single-day cash withdrawals immediately after receiving funds."
+  ]
 }
 ```
 
 ---
 
-## Step 6 — Score Improvement Recommendations (show to vendor)
+## Step 6 — Score Improvement Recommendations & Mistakes to Avoid
 
-Always output 3 actionable tips to improve their score:
+Always output 3 actionable tips (`improvement_tips`) to improve their score and 3 common mistakes to avoid (`mistakes_to_avoid`). 
+For example:
 
-1. **Go more digital** — "Switch ₹500+  transactions to UPI. Each digital transaction strengthens your score."
-2. **Pay utilities on time** — "Set auto-pay for electricity and mobile. On-time payments add up to 15 points."
-3. **Diversify income sources** — "Serving more customers reduces your dependency risk and boosts your score."
-4. **Maintain a buffer balance** — "Keeping ₹2,000+ in your account at all times signals financial discipline."
-5. **Link your suppliers** — "Ask your milk/vegetable suppliers to verify your relationship on VendorPASS."
+**Tips**:
+1. "Switch ₹500+ transactions to UPI. Each digital transaction strengthens your score."
+2. "Set auto-pay for electricity and mobile. On-time payments add up to 15 points."
+3. "Serving more customers reduces your dependency risk and boosts your score."
+
+**Mistakes**:
+1. "Avoid large single-day cash withdrawals immediately after receiving funds."
+2. "Do not miss EMI repayment windows."
+3. "Stop receiving unverified transfers with suspicious counterparty names."
 
 ---
 

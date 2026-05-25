@@ -631,6 +631,13 @@ export default function DashboardScreen() {
             <Text style={styles.insightText}>
               {activeTrustScoreData.score_explanation}
             </Text>
+            <Pressable 
+              style={styles.insightLinkBtn} 
+              onPress={() => setReportModalVisible(true)}
+            >
+              <Text style={styles.insightLinkLabel}>View Full Report </Text>
+              <SymbolView tintColor="#895100" name="arrow_forward" size={14} />
+            </Pressable>
           </View>
         ) : (
           <View style={styles.insightBox}>
@@ -1193,65 +1200,62 @@ export default function DashboardScreen() {
         onRequestClose={() => setReportModalVisible(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.modalCardContainer}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitleText}>TrustScore™ Report</Text>
+          <View style={[styles.modalCardContainer, { maxHeight: '85%', padding: 0 }]}>
+            <View style={[styles.modalHeader, { padding: 24, paddingBottom: 16 }]}>
+              <Text style={styles.modalTitleText}>TrustScore™ Insight</Text>
               <Pressable onPress={() => setReportModalVisible(false)} style={styles.modalCloseBtn}>
                 <SymbolView tintColor="#1c1c18" name="xmark" size={20} />
               </Pressable>
             </View>
 
-            <View style={styles.reportScoreBanner}>
-              <Text style={styles.reportScoreLabel}>CURRENT SCORE</Text>
-              <Text style={styles.reportScoreVal}>{user?.score ?? 742} / 1000</Text>
-              <Text style={styles.reportScoreSub}>Standing: Good (Top 12% in area)</Text>
-            </View>
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 24, paddingTop: 0, gap: 16 }}>
+              {/* Detailed Analysis Card */}
+              <View style={[styles.insightDetailCard, styles.insightAnalysisCard]}>
+                <View style={styles.insightDetailHeader}>
+                  <SparkleIcon size={18} color="#895100" />
+                  <Text style={[styles.insightDetailTitle, { color: '#895100' }]}>DETAILED ANALYSIS</Text>
+                </View>
+                <Text style={styles.insightDetailText}>
+                  {activeTrustScoreData?.analysis || activeTrustScoreData?.score_explanation || activeTrustScoreData?.explanation || "This vendor scored 172 out of 850, which is in the Critical risk tier. The score is very low because: (1) The account is only 1 month old with no established history, making it impossible to assess reliability. (2) All transactions occur through a single wallet channel with no diversification. (3) Multiple large EMI repayments totaling over 1.6 lakh suggest heavy debt burden relative to income. (4) Counterparty names include suspicious entries like 'easy money lol', 'gambling', 'helll yeah', and 'fun' indicating non-serious or high-risk financial behavior. (5) There is a 70,000 loss transaction and a 9,780 loss transaction on the same day, showing significant financial instability. (6) No utility payments, supplier invoices, or verified loan history exist to demonstrate responsible financial management. (7) The average monthly balance is zero, indicating no financial cushion. (8) Transaction descriptions are all uncategorized, showing poor financial record-keeping."}
+                </Text>
+                <SparkleWatermark />
+              </View>
 
-            <Text style={styles.inputLabel}>BEHAVIORAL RISK FACTORS</Text>
-            
-            <View style={styles.factorCard}>
-              <View style={styles.factorHeader}>
-                <Text style={styles.factorTitle}>Supplier Payments</Text>
-                <Text style={styles.factorRatingGood}>96% On-Time</Text>
+              {/* Improvement Tips Card */}
+              <View style={[styles.insightDetailCard, styles.insightTipsCard]}>
+                <View style={styles.insightDetailHeader}>
+                  <SymbolView name="arrow.up.right" size={18} tintColor="#2D7D46" />
+                  <Text style={[styles.insightDetailTitle, { color: '#2D7D46' }]}>HOW TO IMPROVE</Text>
+                </View>
+                {(activeTrustScoreData?.improvement_tips || activeTrustScoreData?.improvement_recommendations || activeTrustScoreData?.recommendations || [
+                  "Link verified wholesale suppliers to demonstrate business activity.",
+                  "Maintain a positive average monthly balance above ₹5,000.",
+                  "Add clear descriptions to all transactions for proper categorization.",
+                  "Establish a consistent 3-month repayment history before applying for large limits."
+                ]).map((tip: string, idx: number) => (
+                  <View key={idx} style={styles.insightListItem}>
+                    <View style={[styles.insightListDot, { backgroundColor: '#2D7D46' }]} />
+                    <Text style={styles.insightListText}>{tip}</Text>
+                  </View>
+                ))}
               </View>
-              <View style={styles.factorBarBackground}>
-                <View style={[styles.factorBarFill, { width: '96%', backgroundColor: '#2D7D46' }]} />
-              </View>
-            </View>
 
-            <View style={styles.factorCard}>
-              <View style={styles.factorHeader}>
-                <Text style={styles.factorTitle}>Sales Stability</Text>
-                <Text style={styles.factorRatingGood}>High Volume</Text>
-              </View>
-              <View style={styles.factorBarBackground}>
-                <View style={[styles.factorBarFill, { width: '84%', backgroundColor: '#2D7D46' }]} />
-              </View>
-            </View>
-
-            <View style={styles.factorCard}>
-              <View style={styles.factorHeader}>
-                <Text style={styles.factorTitle}>UPI Transaction Depth</Text>
-                <Text style={styles.factorRatingExcellent}>Strong (26 days active)</Text>
-              </View>
-              <View style={styles.factorBarBackground}>
-                <View style={[styles.factorBarFill, { width: '92%', backgroundColor: '#2D7D46' }]} />
-              </View>
-            </View>
-
-            <View style={styles.factorCard}>
-              <View style={styles.factorHeader}>
-                <Text style={styles.factorTitle}>Supplier Linkage</Text>
-                <Text style={styles.factorRatingFair}>{supplierCount} Linked</Text>
-              </View>
-              <View style={styles.factorBarBackground}>
-                <View style={[styles.factorBarFill, { width: '60%', backgroundColor: '#CC8600' }]} />
-              </View>
-            </View>
-
-            <Text style={styles.reportDisclaimer}>
-              Calculated in real-time by VendorPASS Behavioral AI based on ledger entries, SMS invoices, and transaction profiles.
-            </Text>
+              {/* Mistakes to Avoid Card */}
+              {(activeTrustScoreData?.mistakes_to_avoid || activeTrustScoreData?.key_concerns) && (
+                <View style={[styles.insightDetailCard, styles.insightMistakesCard]}>
+                  <View style={styles.insightDetailHeader}>
+                    <SymbolView name="exclamationmark.triangle.fill" size={18} tintColor="#C0392B" />
+                    <Text style={[styles.insightDetailTitle, { color: '#C0392B' }]}>MISTAKES TO AVOID</Text>
+                  </View>
+                  {(activeTrustScoreData?.mistakes_to_avoid || activeTrustScoreData?.key_concerns).map((mistake: string, idx: number) => (
+                    <View key={idx} style={styles.insightListItem}>
+                      <View style={[styles.insightListDot, { backgroundColor: '#C0392B' }]} />
+                      <Text style={styles.insightListText}>{mistake}</Text>
+                    </View>
+                  ))}
+                </View>
+              )}
+            </ScrollView>
           </View>
         </View>
       </Modal>
@@ -2216,6 +2220,63 @@ const styles = StyleSheet.create({
   factorBarFill: {
     height: '100%',
     borderRadius: 3,
+  },
+  insightDetailCard: {
+    padding: 16,
+    borderRadius: 16,
+    borderWidth: 1.5,
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  insightAnalysisCard: {
+    backgroundColor: '#fdf9f3',
+    borderColor: '#ffdcbc',
+  },
+  insightTipsCard: {
+    backgroundColor: '#F3FAF5',
+    borderColor: '#2D7D4630',
+  },
+  insightMistakesCard: {
+    backgroundColor: '#FDEDEC',
+    borderColor: '#C0392B30',
+  },
+  insightDetailHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 12,
+  },
+  insightDetailTitle: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    letterSpacing: 1.0,
+    fontFamily: Platform.OS === 'web' ? 'Sora' : 'sans-serif',
+  },
+  insightDetailText: {
+    fontSize: 13,
+    color: '#534435',
+    lineHeight: 20,
+    fontFamily: Platform.OS === 'web' ? 'DM Sans' : 'sans-serif',
+    zIndex: 1,
+  },
+  insightListItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    marginBottom: 8,
+  },
+  insightListDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    marginTop: 6,
+  },
+  insightListText: {
+    flex: 1,
+    fontSize: 13,
+    color: '#1C1C1E',
+    lineHeight: 18,
+    fontFamily: Platform.OS === 'web' ? 'DM Sans' : 'sans-serif',
   },
   reportDisclaimer: {
     fontSize: 11,

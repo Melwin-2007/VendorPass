@@ -209,23 +209,37 @@ export default function HistoryScreen() {
                 </Text>
               </View>
             </View>
-            {app.status === 'ACCEPTED' && (
-              <View style={{ marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: '#E8E0D5', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                <View>
-                  <Text style={{ fontSize: 10, color: '#6B6B6B', fontWeight: 'bold' }}>REPAID</Text>
-                  <Text style={{ fontSize: 12, fontWeight: 'bold', color: '#2D7D46' }}>₹{(Number(app.amount_paid) || 0).toLocaleString('en-IN')} / ₹{app.amount.toLocaleString('en-IN')}</Text>
+            {app.status === 'ACCEPTED' && (() => {
+              const principal = Number(app.amount) || 0;
+              const interest = Number(app.interest_rate) || 0;
+              const totalAmount = principal + (principal * (interest / 100));
+              const amountPaid = Number(app.amount_paid) || 0;
+              const isFullyPaid = amountPaid >= totalAmount;
+
+              return (
+                <View style={{ marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: '#E8E0D5', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <View>
+                    <Text style={{ fontSize: 10, color: '#6B6B6B', fontWeight: 'bold' }}>REPAID</Text>
+                    <Text style={{ fontSize: 12, fontWeight: 'bold', color: '#2D7D46' }}>₹{amountPaid.toLocaleString('en-IN')} / ₹{principal.toLocaleString('en-IN')}</Text>
+                  </View>
+                  {isFullyPaid ? (
+                    <View style={{ backgroundColor: '#E8F5E9', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12, borderWidth: 1, borderColor: '#2D7D4630' }}>
+                      <Text style={{ color: '#2D7D46', fontSize: 12, fontWeight: 'bold' }}>Loan Repaid 🎉</Text>
+                    </View>
+                  ) : (
+                    <Pressable
+                      onPress={() => {
+                        setSelectedRepayment(app);
+                        setRepayModalVisible(true);
+                      }}
+                      style={{ backgroundColor: '#2D7D46', paddingHorizontal: 16, paddingVertical: 6, borderRadius: 12 }}
+                    >
+                      <Text style={{ color: '#fff', fontSize: 12, fontWeight: 'bold' }}>Repay EMI</Text>
+                    </Pressable>
+                  )}
                 </View>
-                <Pressable
-                  onPress={() => {
-                    setSelectedRepayment(app);
-                    setRepayModalVisible(true);
-                  }}
-                  style={{ backgroundColor: '#2D7D46', paddingHorizontal: 16, paddingVertical: 6, borderRadius: 12 }}
-                >
-                  <Text style={{ color: '#fff', fontSize: 12, fontWeight: 'bold' }}>Repay EMI</Text>
-                </Pressable>
-              </View>
-            )}
+              );
+            })()}
           </View>
         )) : (
           <View style={{ marginTop: 40, alignItems: 'center' }}>
