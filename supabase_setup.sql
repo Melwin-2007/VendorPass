@@ -187,6 +187,7 @@ create table public.loan_offers (
   interest_rate numeric not null,
   tenure text not null,
   status text default 'PENDING' check (status in ('PENDING', 'ACCEPTED', 'DECLINED')) not null,
+  created_by text check (created_by in ('VENDOR', 'LENDER')) default 'LENDER',
   created_at timestamp with time zone default timezone('utc'::text, now()) not null,
   accepted_at timestamp with time zone
 );

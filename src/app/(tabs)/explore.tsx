@@ -467,19 +467,19 @@ function LenderBrowseScreen() {
       <Pressable 
         key={opp.id} 
         onPress={() => {
-          setSelectedRequestForOffer(opp);
-          const numericAmt = parseInt(opp.amount.replace(/[^0-9]/g, '')) || 30000;
-          setLenderOfferAmount(numericAmt.toString());
-          
-          if (opp.isRealRequest && opp.realRequest) {
-            setLenderOfferRate(opp.realRequest.interest_rate.toString());
-            const tenureMonths = parseInt(opp.realRequest.tenure) || 6;
-            setLenderOfferTenure(tenureMonths);
-          } else {
-            setLenderOfferRate('12.5');
-            setLenderOfferTenure(6);
-          }
-          setIsOfferModalVisible(true);
+          router.push({
+            pathname: '/vendor-detail',
+            params: {
+              vendorId: opp.id,
+              oppId: opp.isRealRequest ? opp.realRequest?.id : '',
+              isReal: opp.isRealRequest ? 'true' : 'false',
+              amount: opp.amount,
+              tenure: opp.tenure,
+              note: opp.note,
+              category: opp.category,
+              location: opp.location
+            }
+          });
         }}
         style={({ pressed }) => [styles.oppCard, isFunded && { opacity: 0.6 }, pressed && { opacity: 0.95 }]}
       >

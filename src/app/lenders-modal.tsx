@@ -13,8 +13,10 @@ export default function LendersModalScreen() {
   const [loading, setLoading] = useState(true);
   const [availableLenders, setAvailableLenders] = useState<any[]>([]);
   
-  const [step, setStep] = useState<'CHECKING' | 'SELECT_TYPE' | 'LENDERS' | 'PROPOSAL' | 'PUBLIC_PROPOSAL'>('CHECKING');
+  const [step, setStep] = useState<'CHECKING' | 'SELECT_TYPE' | 'LENDERS' | 'PROPOSAL' | 'PUBLIC_PROPOSAL' | 'PENDING_REQUEST_CANCEL'>('CHECKING');
   const [selectedLender, setSelectedLender] = useState<any>(null);
+  const [pendingRequest, setPendingRequest] = useState<any>(null);
+  const [isCancelling, setIsCancelling] = useState(false);
   
   // Proposal states
   const [loanAmount, setLoanAmount] = useState('50000');
@@ -33,7 +35,7 @@ export default function LendersModalScreen() {
       // 1. Check eligibility (check both direct loan offers and public requests)
       const { data: existingLoans } = await supabase
         .from('loan_offers')
-        .select('*, amount, interest_rate, amount_paid')
+        .select('*, profiles:profiles!lender_id(name, selfie)')
         .eq('vendor_id', user.id)
         .in('status', ['PENDING', 'ACCEPTED']);
 
@@ -44,30 +46,65 @@ export default function LendersModalScreen() {
         .eq('status', 'PENDING');
         
       let hasActiveLoan = false;
+      let hasLenderOffer = false;
+      let foundPending: any = null;
+
       if (existingLoans && existingLoans.length > 0) {
         for (const loan of existingLoans) {
-          if (loan.status === 'PENDING') {
-            hasActiveLoan = true; break;
-          }
           if (loan.status === 'ACCEPTED') {
             const principal = Number(loan.amount);
             const interest = Number(loan.interest_rate) || 0;
             const totalLoanAmount = principal + (principal * (interest / 100));
             const alreadyPaid = Number(loan.amount_paid) || 0;
             if (Math.round(alreadyPaid) < Math.round(totalLoanAmount)) {
-              hasActiveLoan = true; break;
+              hasActiveLoan = true;
+            }
+          } else if (loan.status === 'PENDING') {
+            if (loan.created_by === 'VENDOR') {
+              foundPending = {
+                id: loan.id,
+                type: 'DIRECT',
+                amount: loan.amount,
+                interest_rate: loan.interest_rate,
+                tenure: loan.tenure,
+                lender_name: loan.profiles?.name || 'Lender',
+                lender_avatar: loan.profiles?.selfie || 'https://images.unsplash.com/photo-1560250097-0b93528c311a?q=80&w=200&auto=format&fit=crop',
+              };
+            } else {
+              hasLenderOffer = true;
             }
           }
         }
       }
       
-      if (!hasActiveLoan && existingPublicRequests && existingPublicRequests.length > 0) {
-        hasActiveLoan = true;
+      if (!hasActiveLoan && !hasLenderOffer && !foundPending && existingPublicRequests && existingPublicRequests.length > 0) {
+        const pubReq = existingPublicRequests[0];
+        foundPending = {
+          id: pubReq.id,
+          type: 'PUBLIC',
+          amount: pubReq.amount,
+          interest_rate: pubReq.interest_rate,
+          tenure: pubReq.tenure,
+          reason: pubReq.reason,
+        };
       }
       
       if (hasActiveLoan) {
-        showToast('Active Loan or Pending Request Detected. Repayment required first.', 'error');
+        showToast('Active Loan Detected. Repayment required first.', 'error');
         router.back();
+        return;
+      }
+
+      if (hasLenderOffer) {
+        showToast('Pending Lender Offer Detected. Please review it in the History section.', 'info');
+        router.back();
+        return;
+      }
+
+      if (foundPending) {
+        setPendingRequest(foundPending);
+        setStep('PENDING_REQUEST_CANCEL');
+        setLoading(false);
         return;
       }
       
@@ -113,7 +150,8 @@ export default function LendersModalScreen() {
       amount: amt,
       interest_rate: intRate,
       tenure: `${loanTenure} Months`,
-      status: 'PENDING'
+      status: 'PENDING',
+      created_by: 'VENDOR'
     }]);
 
     if (error) {
@@ -155,6 +193,44 @@ export default function LendersModalScreen() {
       showToast('Request Broadcasted! Visible to all lenders in the Browse tab.', 'success');
     }
     router.back();
+  };
+
+  const handleCancelPendingRequest = async () => {
+    if (!pendingRequest) return;
+    setIsCancelling(true);
+
+    try {
+      if (pendingRequest.type === 'DIRECT') {
+        const { error } = await supabase
+          .from('loan_offers')
+          .delete()
+          .eq('id', pendingRequest.id);
+
+        if (error) {
+          showToast('Cancellation failed. Try again.', 'error');
+        } else {
+          showToast('Loan request cancelled.', 'success');
+          router.back();
+        }
+      } else {
+        const { error } = await supabase
+          .from('public_loan_requests')
+          .delete()
+          .eq('id', pendingRequest.id);
+
+        if (error) {
+          showToast('Cancellation failed. Try again.', 'error');
+        } else {
+          showToast('Public broadcast request cancelled.', 'success');
+          router.back();
+        }
+      }
+    } catch (err) {
+      console.error('Error cancelling request:', err);
+      showToast('An unexpected error occurred.', 'error');
+    } finally {
+      setIsCancelling(false);
+    }
   };
 
   return (
@@ -416,6 +492,110 @@ export default function LendersModalScreen() {
           </ScrollView>
         )}
 
+        {step === 'PENDING_REQUEST_CANCEL' && pendingRequest && (
+          <>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitleText}>Pending Request</Text>
+              <Pressable onPress={() => router.back()} style={styles.modalCloseBtn}>
+                <SymbolView tintColor="#1c1c18" name="xmark" size={20} />
+              </Pressable>
+            </View>
+
+            <View style={styles.pendingContainer}>
+              <View style={styles.warningCard}>
+                <SymbolView name="exclamationmark.triangle.fill" size={20} tintColor="#D4820A" />
+                <Text style={styles.warningText}>
+                  You already have an active pending request. You can cancel it below to submit a new proposal.
+                </Text>
+              </View>
+
+              <View style={styles.pendingDetailsCard}>
+                {pendingRequest.type === 'DIRECT' ? (
+                  <View style={styles.lenderInfoRow}>
+                    <Image source={{ uri: pendingRequest.lender_avatar }} style={styles.lenderAvatar} />
+                    <View style={{ flex: 1, marginLeft: 12 }}>
+                      <Text style={styles.lenderNameText}>{pendingRequest.lender_name}</Text>
+                      <Text style={styles.lenderSubText}>Direct Loan Request</Text>
+                    </View>
+                    <View style={styles.statusBadge}>
+                      <Text style={styles.statusBadgeText}>PENDING REVIEW</Text>
+                    </View>
+                  </View>
+                ) : (
+                  <View style={styles.lenderInfoRow}>
+                    <View style={[styles.choiceIconBg, { backgroundColor: '#E8F6F3', width: 40, height: 40, borderRadius: 20 }]}>
+                      <SymbolView tintColor="#2D7D46" name="square.and.arrow.up" size={18} />
+                    </View>
+                    <View style={{ flex: 1, marginLeft: 12 }}>
+                      <Text style={styles.lenderNameText}>Public Broadcasting</Text>
+                      <Text style={styles.lenderSubText}>Visible to all Lenders</Text>
+                    </View>
+                    <View style={[styles.statusBadge, { backgroundColor: '#2D7D4620' }]}>
+                      <Text style={[styles.statusBadgeText, { color: '#2D7D46' }]}>BROADCASTING</Text>
+                    </View>
+                  </View>
+                )}
+
+                <View style={styles.dividerLine} />
+
+                <View style={styles.termsGrid}>
+                  <View style={styles.termCol}>
+                    <Text style={styles.termLabel}>AMOUNT</Text>
+                    <Text style={styles.termValue}>₹{Number(pendingRequest.amount).toLocaleString('en-IN')}</Text>
+                  </View>
+                  <View style={styles.termCol}>
+                    <Text style={styles.termLabel}>RATE</Text>
+                    <Text style={styles.termValue}>{pendingRequest.interest_rate}% p.a.</Text>
+                  </View>
+                  <View style={styles.termCol}>
+                    <Text style={styles.termLabel}>TENURE</Text>
+                    <Text style={styles.termValue}>{pendingRequest.tenure}</Text>
+                  </View>
+                </View>
+
+                {pendingRequest.type === 'PUBLIC' && pendingRequest.reason && (
+                  <View style={styles.reasonSection}>
+                    <Text style={styles.termLabel}>REASON</Text>
+                    <Text style={styles.reasonValueText} numberOfLines={2}>
+                      "{pendingRequest.reason}"
+                    </Text>
+                  </View>
+                )}
+              </View>
+
+              <View style={styles.actionButtonContainer}>
+                <Pressable
+                  style={({ pressed }) => [
+                    styles.cancelRequestBtn,
+                    pressed && { opacity: 0.9 },
+                  ]}
+                  onPress={handleCancelPendingRequest}
+                  disabled={isCancelling}
+                >
+                  {isCancelling ? (
+                    <ActivityIndicator size="small" color="#FFF" />
+                  ) : (
+                    <>
+                      <SymbolView name="trash" size={16} tintColor="#FFF" style={{ marginRight: 8 }} />
+                      <Text style={styles.cancelRequestBtnText}>Cancel Request</Text>
+                    </>
+                  )}
+                </Pressable>
+
+                <Pressable
+                  style={({ pressed }) => [
+                    styles.keepRequestBtn,
+                    pressed && { opacity: 0.9 },
+                  ]}
+                  onPress={() => router.back()}
+                >
+                  <Text style={styles.keepRequestBtnText}>Keep Request & Go Back</Text>
+                </Pressable>
+              </View>
+            </View>
+          </>
+        )}
+
       </View>
     </View>
   );
@@ -628,5 +808,146 @@ const styles = StyleSheet.create({
     color: '#FFF',
     fontSize: 16,
     fontWeight: '700',
+  },
+  pendingContainer: {
+    gap: 20,
+    marginTop: 10,
+    paddingBottom: 20,
+  },
+  warningCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFF9F2',
+    borderWidth: 1.5,
+    borderColor: '#FCDCB7',
+    borderRadius: 16,
+    padding: 16,
+    gap: 12,
+  },
+  warningText: {
+    flex: 1,
+    fontSize: 13,
+    color: '#895100',
+    lineHeight: 18,
+    fontWeight: '500',
+    fontFamily: 'DM Sans',
+  },
+  pendingDetailsCard: {
+    backgroundColor: '#FFF',
+    borderWidth: 1.5,
+    borderColor: '#EFEFEF',
+    borderRadius: 20,
+    padding: 20,
+  },
+  lenderInfoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  lenderAvatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+  },
+  lenderNameText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#1A3A4A',
+    fontFamily: 'Sora',
+  },
+  lenderSubText: {
+    fontSize: 12,
+    color: '#8E8E93',
+    fontFamily: 'DM Sans',
+    marginTop: 2,
+  },
+  statusBadge: {
+    backgroundColor: '#FFF3E0',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  statusBadgeText: {
+    fontSize: 9,
+    fontWeight: 'bold',
+    color: '#D4820A',
+    fontFamily: 'Sora',
+  },
+  dividerLine: {
+    height: 1,
+    backgroundColor: '#EFEFEF',
+    marginVertical: 16,
+  },
+  termsGrid: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  termCol: {
+    flex: 1,
+  },
+  termLabel: {
+    fontSize: 9,
+    fontWeight: 'bold',
+    color: '#8E8E93',
+    letterSpacing: 1,
+    marginBottom: 4,
+    fontFamily: 'Sora',
+  },
+  termValue: {
+    fontSize: 15,
+    fontWeight: 'bold',
+    color: '#1A3A4A',
+    fontFamily: 'JetBrains Mono',
+  },
+  reasonSection: {
+    marginTop: 16,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#F5F5F5',
+  },
+  reasonValueText: {
+    fontSize: 13,
+    color: '#534435',
+    fontStyle: 'italic',
+    lineHeight: 18,
+    fontFamily: 'DM Sans',
+    marginTop: 4,
+  },
+  actionButtonContainer: {
+    gap: 12,
+    marginTop: 10,
+  },
+  cancelRequestBtn: {
+    backgroundColor: '#E74C3C',
+    borderRadius: 16,
+    height: 56,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#E74C3C',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  cancelRequestBtnText: {
+    color: '#FFF',
+    fontSize: 16,
+    fontWeight: '700',
+    fontFamily: 'Sora',
+  },
+  keepRequestBtn: {
+    backgroundColor: '#FFF',
+    borderWidth: 1.5,
+    borderColor: '#1A3A4A',
+    borderRadius: 16,
+    height: 56,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  keepRequestBtnText: {
+    color: '#1A3A4A',
+    fontSize: 16,
+    fontWeight: '700',
+    fontFamily: 'Sora',
   },
 });

@@ -32,6 +32,19 @@ A single unified application that radically alters its UI/UX based on the authen
 - **🏪 For Vendors:** A dashboard focusing on TrustScore building, credit limit tracking, loan applications, and wallet ledger management.
 - **🏦 For Lenders:** A sophisticated portfolio management suite showing total capital deployed, active loan feeds, and a Tinder-style swipe queue for pending vendor loan approvals.
 
+### 🤝 Peer-to-Peer Counter-Offer Negotiations
+- **Custom Terms Proposal:** Lenders can review vendor profiles or public broadcast requests and submit customized counter-offers (specifying amount, rate, and tenure).
+- **Direct Vendor Decisions:** Vendors can accept or decline lender counter-proposals from their History section, which auto-triggers instant P2P wallet disbursements.
+
+### ❌ In-Modal Request Cancellation
+- Vendors can click the main loan section tab button to view any pending direct or broadcast request and cancel it immediately (deleting it from Supabase) to clear the way for new applications.
+
+### ✨ Dynamic UI Animations & Polish
+- **Score Count-Up:** The credit score display counts up dynamically from 300 to its current score on entry.
+- **Pillar Slides:** Scoring Pillars and risk indicators feature smooth progress bar sliding animations on tab changes.
+- **Cross-Platform Symbols:** Extended SF symbols mappings for perfect icon rendering on Android/Web.
+
+
 ### ⏱️ Accelerated "Physics Engine" (Demo Mode)
 For demonstration and testing purposes, VendorPass operates on an accelerated timeline:
 > **5 real-world minutes = 1 in-app financial month**

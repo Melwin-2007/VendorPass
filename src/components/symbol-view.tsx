@@ -18,6 +18,7 @@ const ICON_MAPPING: Record<string, { set: 'Ionicons' | 'Feather' | 'FontAwesome'
   // Navigation & Chevron
   'chevron.left': { set: 'Ionicons', name: 'chevron-back' },
   'chevron_left': { set: 'Ionicons', name: 'chevron-back' },
+  'arrow.left': { set: 'Ionicons', name: 'arrow-back' },
   'chevron.right': { set: 'Ionicons', name: 'chevron-forward' },
   'chevron_right': { set: 'Ionicons', name: 'chevron-forward' },
   'chevron.down': { set: 'Ionicons', name: 'chevron-down' },
@@ -31,6 +32,7 @@ const ICON_MAPPING: Record<string, { set: 'Ionicons' | 'Feather' | 'FontAwesome'
   'checkmark.circle': { set: 'Ionicons', name: 'checkmark-circle-outline' },
   'checkmark.circle.fill': { set: 'Ionicons', name: 'checkmark-circle' },
   'checkmark_circle_fill': { set: 'Ionicons', name: 'checkmark-circle' },
+  'checkmark.seal.fill': { set: 'Ionicons', name: 'checkmark-circle' },
   'sparkles': { set: 'Ionicons', name: 'sparkles-outline' },
 
   // Auth & Profile
@@ -95,6 +97,11 @@ const ICON_MAPPING: Record<string, { set: 'Ionicons' | 'Feather' | 'FontAwesome'
   'home_app_logo': { set: 'Ionicons', name: 'home-outline' },
   'calendar_today': { set: 'Ionicons', name: 'calendar-outline' },
   'chat_bubble': { set: 'Ionicons', name: 'chatbubble-outline' },
+  'info.circle': { set: 'Ionicons', name: 'information-circle-outline' },
+  'chart.bar': { set: 'Ionicons', name: 'bar-chart-outline' },
+  'exclamationmark.triangle': { set: 'Ionicons', name: 'warning-outline' },
+  'exclamationmark.triangle.fill': { set: 'Ionicons', name: 'warning' },
+  'clock': { set: 'Ionicons', name: 'time-outline' },
 };
 
 export function SymbolView({

@@ -170,3 +170,20 @@ npm start
   * A new "View AI Score Insights" button on the Vendor Dashboard triggers a dynamic Credit Report Modal.
   * The modal reads the latest `history` block and dynamically updates the summary card (turning green for recent score bumps, and red for recent drops).
   * A vertical scrollable timeline renders every narrative chronologically with color-coded impacts.
+
+### 6. Lender Custom Terms & Browse Feed Redesign
+* **Dynamic Browse Pipeline**: Refactored the lender browse screen (`explore.tsx`) to pull live merchant profiles from Supabase and merge them with pending public loan broadcasts (`public_loan_requests`).
+* **Interactive Terms Modal**: Implemented a custom proposal dialog allowing lenders to input customized loan amounts, p.a. interest rates, and month tenures. Submitting inserts a counter-proposal into the `loan_offers` table.
+
+### 7. Vendor Counter-Offer Decisions & Payments Sync
+* **Accept & Decline Routines**: Modified `history.tsx` to handle counter-offers. Renders dynamic green "Accept Offer" and red "Decline" actions next to details indicating proposed interest rates.
+* **Wallet Disbursement Transactions**: Accepting a lender-initiated counter-proposal triggers automated wallet balance transfers, debits the lender's wallet, credits the vendor's wallet, and dispatches push notifications.
+
+### 8. Pending Request Cancellation Flow
+* **Direct Modal Cancellation**: Modified `lenders-modal.tsx` to check for active pending applications. If a vendor clicks the center loan button while a direct or public broadcast request is awaiting review, they are presented with a detailed status screen.
+* **Immediate Deletions**: Vendors can cancel the pending request directly from the modal, instantly removing it from the database (e.g. `loan_offers` or `public_loan_requests`) to make a new proposal.
+
+### 9. Dynamic Profile Animations & Symbol Conversions
+* **Count-Up & Progress Slide-ins**: Added credit score count-up animations (from 300 to current score) and sliding animations for the 6 Scoring Pillars and default probability progress bars, triggering dynamically on active tab changes.
+* **Non-iOS SF Symbols Mapping**: Upgraded `symbol-view.tsx` with translations for new symbols (`arrow.left`, `checkmark.seal.fill`, `info.circle`, `chart.bar`, `exclamationmark.triangle`, `clock`) to display clean Expo vector icons on Android/Web.
+

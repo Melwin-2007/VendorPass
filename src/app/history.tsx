@@ -33,23 +33,49 @@ export default function HistoryScreen() {
   useEffect(() => {
     if (user?.role === 'VENDOR') {
       const fetchApps = async () => {
-        const { data, error } = await supabase
+        // Fetch direct loan offers
+        const { data: offers, error: offersErr } = await supabase
           .from('loan_offers')
           .select('*, profiles:profiles!lender_id(name, selfie)')
           .eq('vendor_id', user.id)
           .order('created_at', { ascending: false });
         
-        if (data) {
-          const validData = data.filter((o: any) => o.profiles?.name && o.profiles.name.trim() !== '');
-          setVendorApplications(validData);
+        // Fetch public loan requests
+        const { data: publicReqs, error: reqsErr } = await supabase
+          .from('public_loan_requests')
+          .select('*')
+          .eq('vendor_id', user.id)
+          .eq('status', 'PENDING')
+          .order('created_at', { ascending: false });
+        
+        let merged: any[] = [];
+        if (offers) {
+          const validOffers = offers.filter((o: any) => o.profiles?.name && o.profiles.name.trim() !== '');
+          merged = [...validOffers];
         }
+        if (publicReqs) {
+          const mappedReqs = publicReqs.map(r => ({
+            ...r,
+            isPublicRequest: true,
+            profiles: {
+              name: 'Public Broadcasting Feed',
+              selfie: 'https://lh3.googleusercontent.com/aida-public/AB6AXuBp-aRKkGDKeuwqhPEmq7g1UC6fAJe7VnCjIBkl8xQ_owajzWgfUPWgUMJOIyoiN0LKTUspoZaFUGMsePMDyMvyc8wOY0Ht8h_r-OZXBP_HQCuvHb2y_yMdS0aE_gbQkkTv3Lfk4ygKkKjRhjN_MvU6GCEuVhiMMajr7ZRd8kQ8WKCxD3dRBu_V3DmsoDaRhR4lC0m7DzQz96jcsebEXvsWN9aBxHGSMpo1wqkYa05F8THygZ30zTg55ArV1Ig9JnHR1x12es4h9pO8'
+            }
+          }));
+          merged = [...merged, ...mappedReqs];
+        }
+        
+        setVendorApplications(merged);
       };
 
       fetchApps();
 
       const subscription = supabase
-        .channel(`vendor_history_offers_${Date.now()}_${Math.random()}`)
+        .channel(`vendor_history_changes_${Date.now()}_${Math.random()}`)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'loan_offers', filter: `vendor_id=eq.${user.id}` }, () => {
+          fetchApps();
+        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'public_loan_requests', filter: `vendor_id=eq.${user.id}` }, () => {
           fetchApps();
         })
         .subscribe();
@@ -63,6 +89,101 @@ export default function HistoryScreen() {
       text1: message,
       position: 'top',
     });
+  };
+
+  const handleVendorAcceptOffer = async (app: any) => {
+    if (!user) return;
+    
+    const lenderName = app.profiles?.name || 'Lender';
+    const vendorName = user.name || 'Vendor';
+    const amount = Number(app.amount);
+    
+    const { error: updateErr } = await supabase
+      .from('loan_offers')
+      .update({ 
+        status: 'ACCEPTED', 
+        accepted_at: new Date().toISOString() 
+      })
+      .eq('id', app.id);
+      
+    if (updateErr) {
+      showToast('Acceptance failed. Try again.', 'error');
+      return;
+    }
+    
+    // Send from Lender
+    const { error: tx1Err } = await supabase.from('wallet_transactions').insert({
+      user_id: app.lender_id,
+      amount: amount,
+      type: 'SEND',
+      description: `Loan Disbursement to ${vendorName}`
+    });
+    
+    // Add to Vendor
+    const { error: tx2Err } = await supabase.from('wallet_transactions').insert({
+      user_id: user.id,
+      amount: amount,
+      type: 'ADD',
+      description: `Loan Received from ${lenderName}`
+    });
+    
+    if (tx1Err || tx2Err) {
+      console.error("Disbursement transactions failed:", tx1Err, tx2Err);
+    }
+    
+    await supabase.from('notifications').insert([
+      {
+        user_id: user.id,
+        title: 'Loan Disbursed 🎉',
+        message: `₹${amount.toLocaleString('en-IN')} has been credited to your wallet from ${lenderName}.`
+      },
+      {
+        user_id: app.lender_id,
+        title: 'Offer Accepted 🤝',
+        message: `${vendorName} accepted your loan offer of ₹${amount.toLocaleString('en-IN')}.`
+      }
+    ]);
+    
+    showToast('Loan Offer Accepted! Funds disbursed.', 'success');
+  };
+
+  const handleVendorRejectOffer = async (id: string) => {
+    const { error } = await supabase
+      .from('loan_offers')
+      .update({ status: 'DECLINED' })
+      .eq('id', id);
+      
+    if (error) {
+      showToast('Action failed. Try again.', 'error');
+    } else {
+      showToast('Offer declined.', 'info');
+    }
+  };
+
+  const handleVendorCancelOffer = async (id: string) => {
+    const { error } = await supabase
+      .from('loan_offers')
+      .delete()
+      .eq('id', id);
+      
+    if (error) {
+      showToast('Cancellation failed. Try again.', 'error');
+    } else {
+      showToast('Loan request cancelled.', 'success');
+    }
+  };
+
+  const handleVendorCancelPublicRequest = async (id: string) => {
+    const { error } = await supabase
+      .from('public_loan_requests')
+      .delete()
+      .eq('id', id);
+      
+    if (error) {
+      showToast('Cancellation failed. Try again.', 'error');
+    } else {
+      showToast('Public broadcast request cancelled.', 'success');
+    }
   };
 
   let amountDue = 0;
@@ -217,7 +338,9 @@ export default function HistoryScreen() {
                 <Image source={{ uri: app.profiles?.selfie || 'https://images.unsplash.com/photo-1560250097-0b93528c311a?q=80&w=200&auto=format&fit=crop' }} style={{ width: 40, height: 40, borderRadius: 20, borderWidth: 1, borderColor: '#E8E0D5' }} />
                 <View style={{ marginLeft: 12 }}>
                   <Text style={styles.activityItemTitle}>{app.profiles?.name || 'Lender'}</Text>
-                  <Text style={styles.activityItemDate}>₹{app.amount.toLocaleString('en-IN')} • {app.tenure}</Text>
+                  <Text style={styles.activityItemDate}>
+                    ₹{Number(app.amount).toLocaleString('en-IN')} • {app.interest_rate ? `${app.interest_rate}% p.a. • ` : ''}{app.tenure}
+                  </Text>
                 </View>
               </View>
               <View style={{ backgroundColor: app.status === 'ACCEPTED' ? '#2D7D4620' : app.status === 'DECLINED' ? '#E74C3C20' : '#D4820A20', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 }}>
@@ -257,6 +380,57 @@ export default function HistoryScreen() {
                 </View>
               );
             })()}
+            {app.status === 'PENDING' && (
+              app.isPublicRequest ? (
+                <View style={{ marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: '#E8E0D5', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <View>
+                    <Text style={{ fontSize: 9, color: '#8E8E93', fontWeight: 'bold', letterSpacing: 0.5 }}>STATUS</Text>
+                    <Text style={{ fontSize: 13, fontWeight: '600', color: '#D4820A', marginTop: 2 }}>Broadcasting to Lenders</Text>
+                  </View>
+                  <Pressable
+                    onPress={() => handleVendorCancelPublicRequest(app.id)}
+                    style={{ backgroundColor: '#E74C3C15', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 12 }}
+                  >
+                    <Text style={{ color: '#E74C3C', fontSize: 12, fontWeight: 'bold' }}>Cancel Broadcast</Text>
+                  </Pressable>
+                </View>
+              ) : app.created_by === 'VENDOR' ? (
+                <View style={{ marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: '#E8E0D5', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <View>
+                    <Text style={{ fontSize: 9, color: '#8E8E93', fontWeight: 'bold', letterSpacing: 0.5 }}>STATUS</Text>
+                    <Text style={{ fontSize: 13, fontWeight: '600', color: '#D4820A', marginTop: 2 }}>Awaiting Lender Review</Text>
+                  </View>
+                  <Pressable
+                    onPress={() => handleVendorCancelOffer(app.id)}
+                    style={{ backgroundColor: '#E74C3C15', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 12 }}
+                  >
+                    <Text style={{ color: '#E74C3C', fontSize: 12, fontWeight: 'bold' }}>Cancel Request</Text>
+                  </Pressable>
+                </View>
+              ) : (
+                <View style={{ marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: '#E8E0D5', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <View>
+                    <Text style={{ fontSize: 9, color: '#8E8E93', fontWeight: 'bold', letterSpacing: 0.5 }}>OFFERED RATE</Text>
+                    <Text style={{ fontSize: 14, fontWeight: 'bold', color: '#D4820A', marginTop: 2 }}>{app.interest_rate || '12'}% p.a.</Text>
+                  </View>
+                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <Pressable
+                      onPress={() => handleVendorRejectOffer(app.id)}
+                      style={{ backgroundColor: '#E74C3C15', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 12, marginRight: 12 }}
+                    >
+                      <Text style={{ color: '#E74C3C', fontSize: 12, fontWeight: 'bold' }}>Decline</Text>
+                    </Pressable>
+                    
+                    <Pressable
+                      onPress={() => handleVendorAcceptOffer(app)}
+                      style={{ backgroundColor: '#2D7D46', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 12 }}
+                    >
+                      <Text style={{ color: '#fff', fontSize: 12, fontWeight: 'bold' }}>Accept Offer</Text>
+                    </Pressable>
+                  </View>
+                </View>
+              )
+            )}
           </View>
         )) : (
           <View style={{ marginTop: 40, alignItems: 'center' }}>
