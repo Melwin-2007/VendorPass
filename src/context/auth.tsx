@@ -50,10 +50,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     let isMounted = true;
 
     const fetchAndSubscribeProfile = async (userId: string, metadata: any) => {
-      // Initial fetch
+      // Initial fetch from profiles table (source of truth)
       const { data: profileData } = await supabase
         .from('profiles')
-        .select('trust_score_data')
+        .select('name, username, email, phone, role, selfie, business_photo, score, trust_score_data')
         .eq('id', userId)
         .single();
 
@@ -61,24 +61,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       setUser(prev => ({
         id: userId,
-        name: metadata?.name || 'User',
-        username: metadata?.username || 'user',
-        email: metadata?.email || '',
-        phone: metadata?.phone || '',
-        role: (metadata?.role as UserRole) || 'VENDOR',
-        selfie: metadata?.selfie || null,
-        businessPhoto: metadata?.businessPhoto || null,
-        score: metadata?.score || (metadata?.role === 'VENDOR' ? 620 : 0),
+        name: profileData?.name || metadata?.name || 'User',
+        username: profileData?.username || metadata?.username || 'user',
+        email: profileData?.email || metadata?.email || '',
+        phone: profileData?.phone || metadata?.phone || '',
+        role: (profileData?.role || metadata?.role || 'VENDOR') as UserRole,
+        selfie: profileData?.selfie || metadata?.selfie || null,
+        businessPhoto: profileData?.business_photo || metadata?.businessPhoto || null,
+        score: profileData?.score ?? metadata?.score ?? (metadata?.role === 'VENDOR' ? 620 : 0),
         trustScoreData: profileData?.trust_score_data,
       }));
       setLoading(false);
 
-      // Subscribe to profile changes (e.g. edge function updating trust score)
+      // Subscribe to profile changes (e.g. edge function or EMI repayment updating trust score)
       const channelName = `profile_updates_${userId}_${Date.now()}`;
       profileSubscription = supabase.channel(channelName)
         .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'profiles', filter: `id=eq.${userId}` }, (payload) => {
-          if (payload.new && payload.new.trust_score_data) {
-            setUser(current => current ? { ...current, trustScoreData: payload.new.trust_score_data } : null);
+          if (payload.new) {
+            setUser(current => current ? {
+              ...current,
+              name: payload.new.name || current.name,
+              selfie: payload.new.selfie || current.selfie,
+              businessPhoto: payload.new.business_photo || current.businessPhoto,
+              score: payload.new.score !== undefined ? payload.new.score : current.score,
+              trustScoreData: payload.new.trust_score_data !== undefined ? payload.new.trust_score_data : current.trustScoreData,
+            } : null);
           }
         })
         .subscribe();

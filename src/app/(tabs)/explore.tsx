@@ -8,6 +8,9 @@ import {
   Platform,
   TextInput,
   Image,
+  Modal,
+  ActivityIndicator,
+  TouchableOpacity,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/hooks/use-theme';
@@ -180,17 +183,26 @@ interface Opportunity {
   image: string;
   avatars: string[];
   funding_status?: string;
+  isRealRequest?: boolean;
+  realRequest?: any;
 }
 
 
 function LenderBrowseScreen() {
-  
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedFilter, setSelectedFilter] = useState('Near Me');
   const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
   const [watchlists, setWatchlists] = useState<string[]>([]);
   const [loanOffers, setLoanOffers] = useState<string[]>([]);
   const { user } = useAuth();
+
+  // Custom offer modal states
+  const [isOfferModalVisible, setIsOfferModalVisible] = useState(false);
+  const [selectedRequestForOffer, setSelectedRequestForOffer] = useState<Opportunity | null>(null);
+  const [lenderOfferAmount, setLenderOfferAmount] = useState('50000');
+  const [lenderOfferRate, setLenderOfferRate] = useState('12.5');
+  const [lenderOfferTenure, setLenderOfferTenure] = useState(6);
+  const [isSubmittingOffer, setIsSubmittingOffer] = useState(false);
 
   const showToast = (message: string, type: 'success' | 'error' | 'info' = 'info') => {
     Toast.show({
@@ -200,29 +212,90 @@ function LenderBrowseScreen() {
     });
   };
 
-  // Fetch dynamic vendor profiles from Supabase and merge
-  useEffect(() => {
-    const fetchVendors = async () => {
-      const { data, error } = await supabase
+  const mockLenderAvatars = [
+    'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=100&auto=format&fit=crop',
+    'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?q=80&w=100&auto=format&fit=crop',
+    'https://images.unsplash.com/photo-1494790108377-be9c29b29330?q=80&w=100&auto=format&fit=crop',
+    'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?q=80&w=100&auto=format&fit=crop'
+  ];
+
+  // Fetch dynamic vendor profiles and public requests from Supabase
+  const fetchVendors = async () => {
+    const [profilesRes, publicRequestsRes] = await Promise.all([
+      supabase
         .from('profiles')
         .select('*')
         .eq('role', 'VENDOR')
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false }),
+      supabase
+        .from('public_loan_requests')
+        .select('*')
+        .eq('status', 'PENDING')
+        .order('created_at', { ascending: false })
+    ]);
 
-      if (error) {
-        console.error('Error fetching search profiles:', error);
-        return;
-      }
+    if (profilesRes.error) {
+      console.error('Error fetching search profiles:', profilesRes.error);
+      return;
+    }
 
-      if (data && data.length > 0) {
-        const validProfiles = data.filter(profile => !!profile.name && profile.name.trim() !== '');
-        const mapped = validProfiles.map((profile) => {
-          const rawScore = profile.score || 600;
+    const profiles = profilesRes.data || [];
+    const publicRequests = publicRequestsRes.data || [];
+
+    if (profiles.length > 0) {
+      const validProfiles = profiles.filter(profile => !!profile.name && profile.name.trim() !== '');
+      const mapped = validProfiles.map((profile) => {
+        const rawScore = profile.trust_score_data?.trust_score ?? profile.score ?? 620;
+        
+        // Dynamic simulated data based on score
+        const getSimulatedLendersText = (score: number) => {
+          if (score >= 750) {
+            const count = Math.floor((score - 700) / 12) + 2;
+            return `${count} Lenders interested`;
+          } else if (score >= 650) {
+            const count = Math.floor((score - 600) / 15) + 1;
+            return `${count} Lenders interested`;
+          } else {
+            const count = Math.max(1, Math.floor((score - 500) / 40));
+            return `${count} Lender interested`;
+          }
+        };
+
+        const getSimulatedAvatars = (score: number) => {
+          let count = 1;
+          if (score >= 750) count = 3;
+          else if (score >= 650) count = 2;
+          return mockLenderAvatars.slice(0, count);
+        };
+
+        // Find if this vendor has an active public request
+        const realReq = publicRequests.find((req: any) => req.vendor_id === profile.id);
+
+        const cat = profile.name?.toLowerCase().includes('organic') ? 'Retail'
+                  : profile.name?.toLowerCase().includes('ceramics') ? 'Crafts'
+                  : profile.name?.toLowerCase().includes('fix') ? 'Services'
+                  : 'Retail';
+
+        if (realReq) {
+          return {
+            id: profile.id,
+            name: profile.name,
+            category: cat,
+            location: 'Bengaluru',
+            score: rawScore,
+            amount: `₹${Number(realReq.amount).toLocaleString('en-IN')}`,
+            tenure: realReq.tenure,
+            note: realReq.reason,
+            interest: `${realReq.interest_rate}% p.a. • ${getSimulatedLendersText(rawScore)}`,
+            image: profile.selfie || 'https://lh3.googleusercontent.com/aida-public/AB6AXuAlgj-SJy7IHHN72FxR0ksw9nM_XrQpT4CDw_-cf7XWWW3dGev-D7RrwT5t01Jjh9SC4mPC4V72WbitqBuxaang7oo5_1RNOweXOjkLpUEQiI6VM9qNtBGbdtINFD_1tCcctKfd3S9YQXPcSyZOGjFNvmYK-I3Z1kWnVfeBtMZZfSRlX9Ixyo_i322Hmo4RCrCVfMZUl6pIdFZAF7AUYxALh1sSDJykFkLtVia9Fehqnn39siVkTBQ_F8WeSDNBCMApg9u7YLxNIXlV',
+            avatars: getSimulatedAvatars(rawScore),
+            funding_status: profile.funding_status || 'LOOKING_FOR_FUNDS',
+            isRealRequest: true,
+            realRequest: realReq
+          };
+        } else {
           const proposedAmt = rawScore >= 750 ? 30000 : rawScore >= 650 ? 50000 : 15000;
-          const tenureVal = rawScore >= 750 ? '6 months' : rawScore >= 650 ? '12 months' : '3 months';
-          const cat = profile.name?.toLowerCase().includes('ceramics') ? 'Crafts'
-                    : profile.name?.toLowerCase().includes('fix') ? 'Services'
-                    : 'Retail';
+          const tenureVal = rawScore >= 750 ? '6 Months' : rawScore >= 650 ? '12 Months' : '3 Months';
           
           return {
             id: profile.id,
@@ -233,19 +306,29 @@ function LenderBrowseScreen() {
             amount: `₹${proposedAmt.toLocaleString('en-IN')}`,
             tenure: tenureVal,
             note: rawScore >= 750 ? 'inventory expansion for the festive season' : 'spare parts inventory',
-            interest: rawScore >= 750 ? '4 Lenders interested' : 'High yield potential',
+            interest: getSimulatedLendersText(rawScore),
             image: profile.selfie || 'https://lh3.googleusercontent.com/aida-public/AB6AXuAlgj-SJy7IHHN72FxR0ksw9nM_XrQpT4CDw_-cf7XWWW3dGev-D7RrwT5t01Jjh9SC4mPC4V72WbitqBuxaang7oo5_1RNOweXOjkLpUEQiI6VM9qNtBGbdtINFD_1tCcctKfd3S9YQXPcSyZOGjFNvmYK-I3Z1kWnVfeBtMZZfSRlX9Ixyo_i322Hmo4RCrCVfMZUl6pIdFZAF7AUYxALh1sSDJykFkLtVia9Fehqnn39siVkTBQ_F8WeSDNBCMApg9u7YLxNIXlV',
-            avatars: [],
-            funding_status: profile.funding_status || 'LOOKING_FOR_FUNDS'
+            avatars: getSimulatedAvatars(rawScore),
+            funding_status: profile.funding_status || 'LOOKING_FOR_FUNDS',
+            isRealRequest: false
           };
-        });
+        }
+      });
 
-        setOpportunities(mapped);
-      } else {
-        setOpportunities([]);
-      }
-    };
+      // Sort real requests first
+      mapped.sort((a, b) => {
+        if (a.isRealRequest && !b.isRealRequest) return -1;
+        if (!a.isRealRequest && b.isRealRequest) return 1;
+        return 0;
+      });
 
+      setOpportunities(mapped);
+    } else {
+      setOpportunities([]);
+    }
+  };
+
+  useEffect(() => {
     fetchVendors();
 
     const fetchUserData = async () => {
@@ -264,6 +347,7 @@ function LenderBrowseScreen() {
     };
     fetchUserData();
 
+    // Listen for updates to profiles and public requests
     const channel = supabase
       .channel(`lender-profiles-changes_${Date.now()}_${Math.random()}`)
       .on(
@@ -281,8 +365,20 @@ function LenderBrowseScreen() {
       )
       .subscribe();
 
+    const channelRequests = supabase
+      .channel(`lender-requests-changes_${Date.now()}_${Math.random()}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'public_loan_requests' },
+        () => {
+          fetchVendors();
+        }
+      )
+      .subscribe();
+
     return () => {
       supabase.removeChannel(channel);
+      supabase.removeChannel(channelRequests);
     };
   }, [user]);
 
@@ -300,25 +396,40 @@ function LenderBrowseScreen() {
     }
   };
 
-  const handleSendOffer = async (oppId: string, amount: string) => {
-    if (!user) return;
-    const numericAmount = parseInt(amount.replace(/[^0-9]/g, '')) || 10000;
-    
-    await supabase.from('loan_offers').insert({
+  const handleSendCustomOffer = async () => {
+    if (!user || !selectedRequestForOffer) return;
+    setIsSubmittingOffer(true);
+
+    const amt = parseFloat(lenderOfferAmount.replace(/,/g, ''));
+    const rate = parseFloat(lenderOfferRate) || 12.0;
+
+    if (isNaN(amt) || amt <= 0) {
+      showToast('Invalid Amount. Please enter a valid number.', 'error');
+      setIsSubmittingOffer(false);
+      return;
+    }
+
+    const { error } = await supabase.from('loan_offers').insert({
       lender_id: user.id,
-      vendor_id: oppId,
-      amount: numericAmount,
-      interest_rate: 12,
-      tenure: '6 months',
+      vendor_id: selectedRequestForOffer.id,
+      amount: amt,
+      interest_rate: rate,
+      tenure: `${lenderOfferTenure} Months`,
       status: 'PENDING'
     });
-    setLoanOffers(prev => [...prev, oppId]);
-    showToast('Offer Submitted. Pending vendor review.', 'success');
+
+    if (error) {
+      showToast('Submission Failed. Unable to send offer.', 'error');
+    } else {
+      setLoanOffers(prev => [...prev, selectedRequestForOffer.id]);
+      showToast('Offer Submitted. Pending vendor review.', 'success');
+      setIsOfferModalVisible(false);
+    }
+    setIsSubmittingOffer(false);
   };
 
   // Filter logic
   const filteredOpps = opportunities.filter((opp) => {
-    // 1. Search Query filter
     const matchesSearch = 
       opp.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       opp.location.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -326,7 +437,6 @@ function LenderBrowseScreen() {
 
     if (!matchesSearch) return false;
 
-    // 2. Pill Filter
     if (selectedFilter === 'High Score') {
       return opp.score >= 750;
     }
@@ -334,7 +444,7 @@ function LenderBrowseScreen() {
       return opp.category === 'Retail' || opp.category === 'Micro-Retail';
     }
 
-    return true; // "Near Me" displays all
+    return true;
   });
 
   const getScoreColor = (score: number) => {
@@ -351,11 +461,28 @@ function LenderBrowseScreen() {
 
   const renderOpportunityCard = (opp: Opportunity) => {
     const isFunded = opp.funding_status === 'FUNDED';
-    const isSaved = watchlists.includes(opp.id);
     const hasOffered = loanOffers.includes(opp.id);
 
     return (
-      <View key={opp.id} style={[styles.oppCard, isFunded && { opacity: 0.6 }]}>
+      <Pressable 
+        key={opp.id} 
+        onPress={() => {
+          setSelectedRequestForOffer(opp);
+          const numericAmt = parseInt(opp.amount.replace(/[^0-9]/g, '')) || 30000;
+          setLenderOfferAmount(numericAmt.toString());
+          
+          if (opp.isRealRequest && opp.realRequest) {
+            setLenderOfferRate(opp.realRequest.interest_rate.toString());
+            const tenureMonths = parseInt(opp.realRequest.tenure) || 6;
+            setLenderOfferTenure(tenureMonths);
+          } else {
+            setLenderOfferRate('12.5');
+            setLenderOfferTenure(6);
+          }
+          setIsOfferModalVisible(true);
+        }}
+        style={({ pressed }) => [styles.oppCard, isFunded && { opacity: 0.6 }, pressed && { opacity: 0.95 }]}
+      >
         {isFunded && (
           <View style={styles.fundedOverlay}>
             <Text style={styles.fundedOverlayText}>FUNDED</Text>
@@ -364,65 +491,44 @@ function LenderBrowseScreen() {
         <View style={styles.oppCardTop}>
           <View style={styles.oppCardUser}>
             <Image source={{ uri: opp.image }} style={styles.oppCardAvatar} />
-            <View>
-              <Text style={styles.oppCardName}>{opp.name}</Text>
+            <View style={{ flex: 1 }}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+                <Text style={styles.oppCardName} numberOfLines={2}>{opp.name}</Text>
+                <View style={[styles.oppScoreBadge, { backgroundColor: getScoreBg(opp.score) }]}>
+                  <Text style={[styles.oppScoreText, { color: getScoreColor(opp.score) }]}>• {opp.score}</Text>
+                </View>
+              </View>
               <View style={styles.oppCardDetailsRow}>
-                <SymbolView name="storefront" size={12} tintColor="#6B6B6B" />
+                <SymbolView name="storefront" size={14} tintColor="#A0A0A0" style={{ marginRight: 4 }} />
                 <Text style={styles.oppCardDetailsText}>
                   {opp.category} • {opp.location}
                 </Text>
               </View>
             </View>
           </View>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-            <Pressable onPress={() => handleToggleWatchlist(opp.id)}>
-              <SymbolView name={isSaved ? "bookmark.fill" : "bookmark"} size={22} tintColor={isSaved ? "#D4820A" : "#6B6B6B"} />
-            </Pressable>
-            <View style={[styles.oppScoreBadge, { backgroundColor: getScoreBg(opp.score) }]}>
-              <View style={[styles.oppScoreDot, { backgroundColor: getScoreColor(opp.score) }]} />
-              <Text style={[styles.oppScoreText, { color: getScoreColor(opp.score) }]}>{opp.score}</Text>
-            </View>
-          </View>
         </View>
 
         <Text style={styles.oppCardNote}>
-          Needs <Text style={styles.oppCardBoldAmount}>{opp.amount}</Text> for {opp.note} ({opp.tenure} tenure).
+          Needs <Text style={styles.oppCardBoldAmount}>{opp.amount}</Text> for {opp.note} ({opp.tenure.toLowerCase()} tenure).
         </Text>
 
         <View style={styles.oppCardDivider} />
 
         <View style={styles.oppCardFooter}>
           <View style={styles.oppFooterLenders}>
-            {opp.avatars && opp.avatars.length > 0 ? (
-              <View style={styles.avatarOverlapContainer}>
-                {opp.avatars.map((av, idx) => (
-                  <Image key={idx} source={{ uri: av }} style={[styles.overlapAvatar, { marginLeft: idx > 0 ? -10 : 0 }]} />
-                ))}
-                <Text style={styles.oppFooterLenderText}>{opp.interest}</Text>
-              </View>
-            ) : (
-              <Text style={[styles.oppFooterLenderText, { marginLeft: 0 }]}>{opp.interest}</Text>
-            )}
+            <View style={styles.avatarOverlapContainer}>
+              <View style={[styles.overlapCircle, { backgroundColor: '#FCDCB7', zIndex: 2 }]} />
+              <View style={[styles.overlapCircle, { backgroundColor: '#C5E2F7', marginLeft: -8, zIndex: 1 }]} />
+            </View>
+            <Text style={styles.oppFooterLenderText}>{opp.interest}</Text>
           </View>
 
-          <View style={{ flexDirection: 'row', gap: 8 }}>
-            <Pressable 
-              onPress={() => showToast(`Profile. Loading data for ${opp.name}.`, 'info')}
-              style={styles.viewProfileBtn}
-              disabled={isFunded}
-            >
-              <Text style={styles.viewProfileBtnText}>PROFILE</Text>
-            </Pressable>
-            <Pressable 
-              onPress={() => handleSendOffer(opp.id, opp.amount)}
-              style={[styles.viewProfileBtn, { backgroundColor: hasOffered ? '#6B6B6B' : '#D4820A', borderColor: hasOffered ? '#6B6B6B' : '#D4820A' }]}
-              disabled={isFunded || hasOffered}
-            >
-              <Text style={[styles.viewProfileBtnText, { color: '#ffffff' }]}>{hasOffered ? 'OFFERED' : 'OFFER'}</Text>
-            </Pressable>
+          <View style={styles.viewProfileBtn}>
+            <Text style={styles.viewProfileBtnText}>VIEW PROFILE</Text>
+            <SymbolView name="arrow_forward" size={16} tintColor="#895100" style={{ marginLeft: 6 }} />
           </View>
         </View>
-      </View>
+      </Pressable>
     );
   };
 
@@ -505,9 +611,9 @@ function LenderBrowseScreen() {
           {filteredOpps.length > 0 ? (
             filteredOpps.map(renderOpportunityCard)
           ) : (
-            <View style={styles.emptySearchContainer}>
+            <View style={styles.lenderEmptySearchContainer}>
               <SymbolView name="xmark.circle.fill" size={36} tintColor="#A0A0A0" />
-              <Text style={styles.emptySearchText}>No matching opportunities found.</Text>
+              <Text style={styles.lenderEmptySearchText}>No matching opportunities found.</Text>
             </View>
           )}
         </View>
@@ -523,6 +629,87 @@ function LenderBrowseScreen() {
 
       {/* Bottom Nav Bar */}
       <LenderBottomTabBar activeTab="browse" />
+
+      {/* Lender Terms Entry Modal */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={isOfferModalVisible}
+        onRequestClose={() => setIsOfferModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <Pressable style={styles.modalBackground} onPress={() => setIsOfferModalVisible(false)} />
+          <View style={styles.modalCardContainer}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitleText}>Submit Terms to {selectedRequestForOffer?.name}</Text>
+              <Pressable onPress={() => setIsOfferModalVisible(false)} style={styles.modalCloseBtn}>
+                <SymbolView tintColor="#1c1c18" name="xmark" size={20} />
+              </Pressable>
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 24 }}>
+              <Text style={styles.inputLabel}>OFFER AMOUNT (₹)</Text>
+              <TextInput
+                style={styles.customModalInput}
+                placeholder="Amount"
+                keyboardType="numeric"
+                value={lenderOfferAmount}
+                onChangeText={setLenderOfferAmount}
+              />
+
+              <Text style={styles.inputLabel}>INTEREST RATE (% p.a.)</Text>
+              <TextInput
+                style={styles.customModalInput}
+                placeholder="Rate"
+                keyboardType="numeric"
+                value={lenderOfferRate}
+                onChangeText={setLenderOfferRate}
+              />
+
+              <Text style={styles.inputLabel}>SELECT TENURE</Text>
+              <View style={styles.tenureRow}>
+                {[3, 6, 12].map((m) => (
+                  <Pressable 
+                    key={m}
+                    onPress={() => setLenderOfferTenure(m)}
+                    style={[styles.tenureOption, lenderOfferTenure === m && styles.tenureOptionActive]}
+                  >
+                    <Text style={[styles.tenureOptionText, lenderOfferTenure === m && styles.tenureOptionTextActive]}>{m} Mo</Text>
+                  </Pressable>
+                ))}
+              </View>
+
+              <View style={styles.repaymentSummaryCard}>
+                <Text style={styles.repaymentSummaryTitle}>ESTIMATED REPAYMENT DETAIL</Text>
+                <View style={styles.repaymentSummaryRow}>
+                  <Text style={styles.repaymentDetailLabel}>Monthly EMI</Text>
+                  <Text style={styles.repaymentDetailVal}>
+                    ₹{Math.round((parseFloat(lenderOfferAmount) || 0) * (1 + (parseFloat(lenderOfferRate) || 0) / 100) / lenderOfferTenure).toLocaleString('en-IN')} / mo
+                  </Text>
+                </View>
+                <View style={styles.repaymentSummaryRow}>
+                  <Text style={styles.repaymentDetailLabel}>Total Payback</Text>
+                  <Text style={styles.repaymentDetailVal}>
+                    ₹{Math.round((parseFloat(lenderOfferAmount) || 0) * (1 + (parseFloat(lenderOfferRate) || 0) / 100)).toLocaleString('en-IN')}
+                  </Text>
+                </View>
+              </View>
+
+              <Pressable 
+                style={styles.modalPrimaryBtn} 
+                onPress={handleSendCustomOffer}
+                disabled={isSubmittingOffer}
+              >
+                {isSubmittingOffer ? (
+                  <ActivityIndicator size="small" color="#FFF" />
+                ) : (
+                  <Text style={styles.modalPrimaryBtnText}>Send Offer</Text>
+                )}
+              </Pressable>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -887,14 +1074,12 @@ const styles = StyleSheet.create({
   },
   oppCard: {
     backgroundColor: '#ffffff',
-    borderWidth: 1,
-    borderColor: '#E8E0D5',
-    borderRadius: 20,
-    padding: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
+    borderRadius: 24,
+    padding: 24,
+    shadowColor: '#1c1c18',
+    shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.03,
-    shadowRadius: 8,
+    shadowRadius: 16,
     elevation: 2,
     gap: 12,
     position: 'relative',
@@ -927,54 +1112,51 @@ const styles = StyleSheet.create({
   },
   oppCardUser: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     gap: 12,
+    flex: 1,
   },
   oppCardAvatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 12,
+    width: 56,
+    height: 56,
+    borderRadius: 16,
   },
   oppCardName: {
-    fontSize: 15,
-    fontWeight: '700',
+    fontSize: 16,
+    fontWeight: 'bold',
     color: '#1c1c18',
     fontFamily: Platform.OS === 'web' ? 'Sora' : 'sans-serif',
+    flexShrink: 1,
+    paddingRight: 6,
   },
   oppCardDetailsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
     marginTop: 4,
   },
   oppCardDetailsText: {
-    fontSize: 11,
+    fontSize: 12,
     color: '#6B6B6B',
     fontFamily: Platform.OS === 'web' ? 'DM Sans' : 'sans-serif',
   },
   oppScoreBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
     paddingHorizontal: 8,
     paddingVertical: 4,
-    borderRadius: 8,
-  },
-  oppScoreDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
+    borderRadius: 10,
   },
   oppScoreText: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: 'bold',
     fontFamily: Platform.OS === 'web' ? 'JetBrains Mono' : 'monospace',
   },
   oppCardNote: {
-    fontSize: 13,
-    lineHeight: 18,
-    color: '#534435',
+    fontSize: 14,
+    lineHeight: 20,
+    color: '#1c1c18',
     fontFamily: Platform.OS === 'web' ? 'DM Sans' : 'sans-serif',
+    marginTop: 4,
   },
   oppCardBoldAmount: {
     fontWeight: 'bold',
@@ -983,7 +1165,7 @@ const styles = StyleSheet.create({
   oppCardDivider: {
     height: 1,
     backgroundColor: '#E8E0D5',
-    marginVertical: 4,
+    marginVertical: 8,
   },
   oppCardFooter: {
     flexDirection: 'row',
@@ -997,6 +1179,13 @@ const styles = StyleSheet.create({
   avatarOverlapContainer: {
     flexDirection: 'row',
     alignItems: 'center',
+  },
+  overlapCircle: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    borderColor: '#ffffff',
   },
   overlapAvatar: {
     width: 20,
@@ -1015,21 +1204,20 @@ const styles = StyleSheet.create({
   viewProfileBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
   },
   viewProfileBtnText: {
-    fontSize: 11,
+    fontSize: 13,
     fontWeight: 'bold',
     color: '#895100',
     fontFamily: Platform.OS === 'web' ? 'Sora' : 'sans-serif',
   },
-  emptySearchContainer: {
+  lenderEmptySearchContainer: {
     padding: 40,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 12,
   },
-  emptySearchText: {
+  lenderEmptySearchText: {
     fontSize: 13,
     color: '#A0A0A0',
     fontFamily: Platform.OS === 'web' ? 'DM Sans' : 'sans-serif',
@@ -1104,5 +1292,125 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 0.5,
     fontFamily: Platform.OS === 'web' ? 'Sora' : 'sans-serif',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalBackground: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
+  modalCardContainer: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 24,
+    minHeight: 300,
+    maxHeight: '85%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  modalTitleText: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#1A3A4A',
+    fontFamily: Platform.OS === 'web' ? 'Playfair Display' : 'serif',
+  },
+  modalCloseBtn: {
+    padding: 8,
+    backgroundColor: '#F5F5F5',
+    borderRadius: 20,
+  },
+  inputLabel: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#8E8E93',
+    letterSpacing: 1,
+    marginBottom: 8,
+    marginTop: 16,
+  },
+  customModalInput: {
+    backgroundColor: '#F9F5EF',
+    borderRadius: 12,
+    padding: 16,
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1A3A4A',
+  },
+  tenureRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  tenureOption: {
+    flex: 1,
+    backgroundColor: '#F9F5EF',
+    borderRadius: 12,
+    paddingVertical: 16,
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: 'transparent',
+  },
+  tenureOptionActive: {
+    borderColor: '#D4820A',
+    backgroundColor: '#FFF',
+  },
+  tenureOptionText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#6B6B6B',
+  },
+  tenureOptionTextActive: {
+    color: '#D4820A',
+    fontWeight: '700',
+  },
+  repaymentSummaryCard: {
+    backgroundColor: '#1A3A4A',
+    borderRadius: 16,
+    padding: 16,
+    marginTop: 24,
+    marginBottom: 20,
+  },
+  repaymentSummaryTitle: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#A0B0BA',
+    letterSpacing: 1,
+    marginBottom: 12,
+  },
+  repaymentSummaryRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  repaymentDetailLabel: {
+    fontSize: 14,
+    color: '#FFF',
+  },
+  repaymentDetailVal: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#D4820A',
+  },
+  modalPrimaryBtn: {
+    backgroundColor: '#D4820A',
+    borderRadius: 16,
+    paddingVertical: 18,
+    alignItems: 'center',
+    marginTop: 10,
+  },
+  modalPrimaryBtnText: {
+    color: '#FFF',
+    fontSize: 16,
+    fontWeight: '700',
   },
 });

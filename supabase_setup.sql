@@ -286,7 +286,11 @@ begin
         update public.profiles 
         set score = greatest(0, coalesce(score, 620) - 50),
             trust_score_data = jsonb_set(
-              coalesce(trust_score_data, '{}'::jsonb),
+              jsonb_set(
+                coalesce(trust_score_data, '{}'::jsonb),
+                '{trust_score}',
+                to_jsonb(greatest(0, coalesce(score, 620) - 50))
+              ),
               '{history}',
               jsonb_build_array(
                 jsonb_build_object(
@@ -295,7 +299,7 @@ begin
                   'narrative', 'Critical System Alert: Vendor completely missed an EMI payment window resulting in a 50 point TrustScore drop and Very High Risk classification.',
                   'type', 'penalty'
                 )
-              ) || coalesce((trust_score_data->>'history')::jsonb, '[]'::jsonb)
+              ) || coalesce((trust_score_data->'history'), '[]'::jsonb)
             ) || jsonb_build_object('last_updated', now())
         where id = offer.vendor_id;
 
@@ -331,3 +335,30 @@ $$;
 select cron.schedule('process-overdue-loans-every-min', '* * * * *', $$
   select public.process_overdue_loans();
 $$);
+
+-- 19. Create public_loan_requests table
+create table public.public_loan_requests (
+  id uuid default gen_random_uuid() primary key,
+  vendor_id uuid references public.profiles(id) on delete cascade not null,
+  amount numeric not null,
+  interest_rate numeric not null,
+  tenure text not null,
+  reason text not null,
+  status text default 'PENDING' check (status in ('PENDING', 'FUNDED', 'CANCELLED')) not null,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+grant all on table public.public_loan_requests to anon, authenticated;
+alter table public.public_loan_requests enable row level security;
+
+create policy "Allow all authenticated users to read public loan requests"
+on public.public_loan_requests for select to authenticated
+using (true);
+
+create policy "Allow vendors to manage their own public loan requests"
+on public.public_loan_requests for all to authenticated
+using ((select auth.uid()) = vendor_id)
+with check ((select auth.uid()) = vendor_id);
+
+alter publication supabase_realtime add table public.public_loan_requests;
+

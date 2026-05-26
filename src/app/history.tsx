@@ -119,7 +119,7 @@ export default function HistoryScreen() {
       showToast('Repayment Failed. Unable to process transaction.', 'error');
     } else {
       const lenderName = selectedRepayment.profiles?.name || 'Lender';
-      const vendorName = user.user_metadata?.name || 'Vendor';
+      const vendorName = user.name || 'Vendor';
       
       const cleanAmount = Math.round(amountDue * 100) / 100;
 
@@ -177,6 +177,7 @@ export default function HistoryScreen() {
         
         const newData = {
           ...existingData,
+          trust_score: newScore,
           last_updated: new Date().toISOString(),
           history: [newHistoryItem, ...historyArray]
         };

@@ -13,13 +13,14 @@ export default function LendersModalScreen() {
   const [loading, setLoading] = useState(true);
   const [availableLenders, setAvailableLenders] = useState<any[]>([]);
   
-  const [step, setStep] = useState<'CHECKING' | 'LENDERS' | 'PROPOSAL'>('CHECKING');
+  const [step, setStep] = useState<'CHECKING' | 'SELECT_TYPE' | 'LENDERS' | 'PROPOSAL' | 'PUBLIC_PROPOSAL'>('CHECKING');
   const [selectedLender, setSelectedLender] = useState<any>(null);
   
   // Proposal states
   const [loanAmount, setLoanAmount] = useState('50000');
   const [proposedInterest, setProposedInterest] = useState('12.5');
   const [loanTenure, setLoanTenure] = useState(3);
+  const [loanReason, setLoanReason] = useState('');
   
   const showToast = (message: string, type: 'success' | 'error' | 'info' = 'info') => {
     Toast.show({ type, text1: message, position: 'top' });
@@ -29,12 +30,18 @@ export default function LendersModalScreen() {
     if (!user) return;
     
     const initialize = async () => {
-      // 1. Check eligibility
+      // 1. Check eligibility (check both direct loan offers and public requests)
       const { data: existingLoans } = await supabase
         .from('loan_offers')
         .select('*, amount, interest_rate, amount_paid')
         .eq('vendor_id', user.id)
         .in('status', ['PENDING', 'ACCEPTED']);
+
+      const { data: existingPublicRequests } = await supabase
+        .from('public_loan_requests')
+        .select('*')
+        .eq('vendor_id', user.id)
+        .eq('status', 'PENDING');
         
       let hasActiveLoan = false;
       if (existingLoans && existingLoans.length > 0) {
@@ -54,8 +61,12 @@ export default function LendersModalScreen() {
         }
       }
       
+      if (!hasActiveLoan && existingPublicRequests && existingPublicRequests.length > 0) {
+        hasActiveLoan = true;
+      }
+      
       if (hasActiveLoan) {
-        showToast('Active Loan Detected. Repayment required before new applications.', 'error');
+        showToast('Active Loan or Pending Request Detected. Repayment required first.', 'error');
         router.back();
         return;
       }
@@ -78,7 +89,7 @@ export default function LendersModalScreen() {
         setAvailableLenders(mappedLenders);
       }
       
-      setStep('LENDERS');
+      setStep('SELECT_TYPE');
       setLoading(false);
     };
     
@@ -113,10 +124,43 @@ export default function LendersModalScreen() {
     router.back();
   };
 
+  const handlePostPublicRequest = async () => {
+    const amt = parseFloat(loanAmount.replace(/,/g, ''));
+    const intRate = parseFloat(proposedInterest) || 12.5;
+
+    if (isNaN(amt) || amt <= 0 || amt > 500000) {
+      showToast('Invalid Amount. Please enter a valid numerical value.', 'error');
+      return;
+    }
+
+    if (!loanReason.trim()) {
+      showToast('Please provide a reason for the loan request.', 'error');
+      return;
+    }
+
+    if (!user?.id) return;
+
+    const { error } = await supabase.from('public_loan_requests').insert([{
+      vendor_id: user.id,
+      amount: amt,
+      interest_rate: intRate,
+      tenure: `${loanTenure} Months`,
+      reason: loanReason.trim(),
+      status: 'PENDING'
+    }]);
+
+    if (error) {
+      showToast('Broadcast Failed. Unable to publish public request.', 'error');
+    } else {
+      showToast('Request Broadcasted! Visible to all lenders in the Browse tab.', 'success');
+    }
+    router.back();
+  };
+
   return (
     <View style={styles.modalOverlay}>
       <Pressable style={styles.modalBackground} onPress={() => router.back()} />
-      <View style={[styles.modalCardContainer, step === 'LENDERS' ? { maxHeight: '80%' } : {}]}>
+      <View style={[styles.modalCardContainer, (step === 'LENDERS' || step === 'SELECT_TYPE') ? { maxHeight: '80%' } : {}]}>
         
         {step === 'CHECKING' && (
           <View style={{ padding: 40, alignItems: 'center' }}>
@@ -125,12 +169,53 @@ export default function LendersModalScreen() {
           </View>
         )}
 
+        {step === 'SELECT_TYPE' && (
+          <>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitleText}>Apply for Loan</Text>
+              <Pressable onPress={() => router.back()} style={styles.modalCloseBtn}>
+                <SymbolView tintColor="#1c1c18" name="xmark" size={20} />
+              </Pressable>
+            </View>
+
+            <View style={styles.choiceContainer}>
+              <Pressable 
+                onPress={() => setStep('LENDERS')}
+                style={({ pressed }) => [styles.choiceCard, pressed && { opacity: 0.9 }]}
+              >
+                <View style={[styles.choiceIconBg, { backgroundColor: '#FDF9F3' }]}>
+                  <SymbolView tintColor="#D4820A" name="building.columns" size={24} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.choiceTitle}>Apply to Specific Lender</Text>
+                  <Text style={styles.choiceDesc}>Browse verified financial partners and submit a direct proposal.</Text>
+                </View>
+                <SymbolView tintColor="#D4820A" name="chevron.right" size={16} />
+              </Pressable>
+
+              <Pressable 
+                onPress={() => setStep('PUBLIC_PROPOSAL')}
+                style={({ pressed }) => [styles.choiceCard, pressed && { opacity: 0.9 }]}
+              >
+                <View style={[styles.choiceIconBg, { backgroundColor: '#E8F6F3' }]}>
+                  <SymbolView tintColor="#2D7D46" name="square.and.arrow.up" size={24} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.choiceTitle}>Post Public Request</Text>
+                  <Text style={styles.choiceDesc}>Broadcast your needs to all lenders. Like posting on Instagram.</Text>
+                </View>
+                <SymbolView tintColor="#2D7D46" name="chevron.right" size={16} />
+              </Pressable>
+            </View>
+          </>
+        )}
+
         {step === 'LENDERS' && (
           <>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitleText}>Available Lenders</Text>
-              <Pressable onPress={() => router.back()} style={styles.modalCloseBtn}>
-                <SymbolView tintColor="#1c1c18" name="xmark" size={20} />
+              <Pressable onPress={() => setStep('SELECT_TYPE')} style={styles.modalCloseBtn}>
+                <SymbolView tintColor="#1c1c18" name="arrow.backward" size={20} />
               </Pressable>
             </View>
             
@@ -160,7 +245,7 @@ export default function LendersModalScreen() {
               </ScrollView>
             ) : (
               <View style={styles.lenderEmptyCard}>
-                <SymbolView name="business" size={40} tintColor="#6B6B6B" />
+                <SymbolView name="building.columns" size={40} tintColor="#6B6B6B" />
                 <Text style={styles.lenderEmptyText}>No lenders available right now.</Text>
               </View>
             )}
@@ -244,6 +329,93 @@ export default function LendersModalScreen() {
           </ScrollView>
         )}
 
+        {step === 'PUBLIC_PROPOSAL' && (
+          <ScrollView showsVerticalScrollIndicator={false}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitleText}>Post Public Request</Text>
+              <Pressable onPress={() => setStep('SELECT_TYPE')} style={styles.modalCloseBtn}>
+                <SymbolView tintColor="#1c1c18" name="arrow.backward" size={20} />
+              </Pressable>
+            </View>
+
+            <Text style={styles.inputLabel}>REQUESTED LOAN AMOUNT (₹)</Text>
+            <TextInput
+              style={styles.customModalInput}
+              placeholder="e.g. 50000"
+              placeholderTextColor="#A0A0A0"
+              keyboardType="numeric"
+              value={loanAmount}
+              onChangeText={setLoanAmount}
+            />
+
+            <Text style={styles.inputLabel}>FEASIBLE INTEREST RATE (% p.a.)</Text>
+            <TextInput
+              style={styles.customModalInput}
+              placeholder="e.g. 12.5"
+              placeholderTextColor="#A0A0A0"
+              keyboardType="numeric"
+              value={proposedInterest}
+              onChangeText={setProposedInterest}
+            />
+
+            <Text style={styles.inputLabel}>SELECT TENURE</Text>
+            <View style={styles.tenureRow}>
+              <Pressable 
+                onPress={() => setLoanTenure(3)}
+                style={[styles.tenureOption, loanTenure === 3 && styles.tenureOptionActive]}
+              >
+                <Text style={[styles.tenureOptionText, loanTenure === 3 && styles.tenureOptionTextActive]}>3 Mo</Text>
+              </Pressable>
+              <Pressable 
+                onPress={() => setLoanTenure(6)}
+                style={[styles.tenureOption, loanTenure === 6 && styles.tenureOptionActive]}
+              >
+                <Text style={[styles.tenureOptionText, loanTenure === 6 && styles.tenureOptionTextActive]}>6 Mo</Text>
+              </Pressable>
+              <Pressable 
+                onPress={() => setLoanTenure(12)}
+                style={[styles.tenureOption, loanTenure === 12 && styles.tenureOptionActive]}
+              >
+                <Text style={[styles.tenureOptionText, loanTenure === 12 && styles.tenureOptionTextActive]}>12 Mo</Text>
+              </Pressable>
+            </View>
+
+            <Text style={styles.inputLabel}>REASON FOR THE LOAN</Text>
+            <TextInput
+              style={[styles.customModalInput, { height: 80, textAlignVertical: 'top' }]}
+              placeholder="e.g. inventory expansion for the festive season"
+              placeholderTextColor="#A0A0A0"
+              multiline
+              value={loanReason}
+              onChangeText={setLoanReason}
+            />
+
+            <View style={styles.repaymentSummaryCard}>
+              <Text style={styles.repaymentSummaryTitle}>ESTIMATED REPAYMENT DETAIL</Text>
+              <View style={styles.repaymentSummaryRow}>
+                <Text style={styles.repaymentDetailLabel}>Monthly EMI</Text>
+                <Text style={styles.repaymentDetailVal}>
+                  ₹{Math.round((parseFloat(loanAmount) || 0) * (1 + (parseFloat(proposedInterest) || 0) / 100) / loanTenure).toLocaleString('en-IN')} / mo
+                </Text>
+              </View>
+              <View style={styles.repaymentSummaryRow}>
+                <Text style={styles.repaymentDetailLabel}>Total Payback</Text>
+                <Text style={styles.repaymentDetailVal}>
+                  ₹{Math.round((parseFloat(loanAmount) || 0) * (1 + (parseFloat(proposedInterest) || 0) / 100)).toLocaleString('en-IN')}
+                </Text>
+              </View>
+            </View>
+
+            <Text style={styles.disbursementTargetText}>
+              This request will be visible to all verified lenders on the platform.
+            </Text>
+
+            <Pressable style={styles.modalPrimaryBtn} onPress={handlePostPublicRequest}>
+              <Text style={styles.modalPrimaryBtnText}>Post Request</Text>
+            </Pressable>
+          </ScrollView>
+        )}
+
       </View>
     </View>
   );
@@ -285,6 +457,41 @@ const styles = StyleSheet.create({
     padding: 8,
     backgroundColor: '#F5F5F5',
     borderRadius: 20,
+  },
+  choiceContainer: {
+    gap: 16,
+    marginVertical: 10,
+    paddingBottom: 20,
+  },
+  choiceCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFF',
+    borderWidth: 1.5,
+    borderColor: '#EFEFEF',
+    borderRadius: 16,
+    padding: 16,
+    gap: 16,
+  },
+  choiceIconBg: {
+    width: 52,
+    height: 52,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  choiceTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#1A3A4A',
+    fontFamily: 'Sora',
+    marginBottom: 4,
+  },
+  choiceDesc: {
+    fontSize: 12,
+    color: '#6B6B6B',
+    lineHeight: 16,
+    fontFamily: 'DM Sans',
   },
   lenderListCard: {
     backgroundColor: '#F9F5EF',

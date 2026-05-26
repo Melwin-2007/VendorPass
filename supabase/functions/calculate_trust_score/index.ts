@@ -44,7 +44,7 @@ serve(async (req) => {
     // Fetch the profile
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
-      .select('id, name, created_at')
+      .select('id, name, created_at, score, trust_score_data')
       .eq('id', userId)
       .single();
 
@@ -179,10 +179,37 @@ DO NOT wrap the JSON in markdown code blocks. Return ONLY raw valid JSON.`;
       throw new Error("Invalid JSON from AI model");
     }
 
-    // Update the profile with the new trust score data
+    // Preserve existing history if any
+    const existingTrustScoreData = (profile as any).trust_score_data || {};
+    const existingHistory = Array.isArray(existingTrustScoreData.history) ? existingTrustScoreData.history : [];
+    
+    // Check if score changed to add to history
+    const oldScore = existingTrustScoreData.trust_score || (profile as any).score || 620;
+    const newScore = parsedTrustScoreData.trust_score;
+    const scoreDiff = newScore - oldScore;
+    
+    let history = [...existingHistory];
+    if (scoreDiff !== 0) {
+      history.unshift({
+        timestamp: new Date().toISOString(),
+        score_change: scoreDiff,
+        narrative: parsedTrustScoreData.score_explanation || `TrustScore updated based on recent wallet transactions.`,
+        type: scoreDiff > 0 ? 'reward' : 'penalty'
+      });
+    }
+    
+    const finalTrustScoreData = {
+      ...parsedTrustScoreData,
+      history: history
+    };
+
+    // Update the profile with the new trust score data and the score column
     const { error: updateError } = await supabase
       .from('profiles')
-      .update({ trust_score_data: parsedTrustScoreData })
+      .update({ 
+        score: newScore,
+        trust_score_data: finalTrustScoreData 
+      })
       .eq('id', userId);
 
     if (updateError) throw updateError;
