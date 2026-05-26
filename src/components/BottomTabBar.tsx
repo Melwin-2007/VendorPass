@@ -25,7 +25,7 @@ export function BottomTabBar({
   
   const defaultHomePress = () => router.push('/(tabs)');
   const defaultWalletPress = () => router.push('/wallet');
-  const defaultCenterPress = () => router.push('/(tabs)?applyLoan=true');
+  const defaultCenterPress = () => router.push('/lenders-modal');
 
   // Only render for vendors (not lenders)
   if (userRole === 'LENDER') return null;

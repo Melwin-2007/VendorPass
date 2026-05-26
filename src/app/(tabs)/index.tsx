@@ -84,25 +84,14 @@ export default function DashboardScreen() {
   });
 
   // Vendor Action Modals
-  const [lendersModalVisible, setLendersModalVisible] = useState(false);
-  const [loanModalVisible, setLoanModalVisible] = useState(false);
   const [supplierModalVisible, setSupplierModalVisible] = useState(false);
   const [docsModalVisible, setDocsModalVisible] = useState(false);
   const [reportModalVisible, setReportModalVisible] = useState(false);
   const [notificationsModalVisible, setNotificationsModalVisible] = useState(false);
   const [accountModalVisible, setAccountModalVisible] = useState(false);
 
-  // Lenders data state
-  const [availableLenders, setAvailableLenders] = useState<any[]>([]);
-
   // Modal input states
   const [supplierName, setSupplierName] = useState('');
-  
-  // Loan proposal states
-  const [selectedLender, setSelectedLender] = useState<any>(null);
-  const [loanAmount, setLoanAmount] = useState('50000');
-  const [proposedInterest, setProposedInterest] = useState('12.5');
-  const [loanTenure, setLoanTenure] = useState(3); // in months (3, 6, 12)
 
   // Real data lists
   const [lenderOffers, setLenderOffers] = useState<any[]>([]);
@@ -239,27 +228,7 @@ export default function DashboardScreen() {
   useEffect(() => {
     if (user?.role === 'VENDOR') {
       const fetchVendorData = async () => {
-        // 1. Fetch available lenders
-        const { data: lendersData, error: lendersError } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('role', 'LENDER')
-          .order('created_at', { ascending: false });
-
-        if (lendersError) {
-          console.error('Error fetching lender profiles:', lendersError);
-        } else if (lendersData) {
-          const mappedLenders = lendersData.map((profile) => ({
-            id: profile.id,
-            name: profile.name || 'Financial Partner',
-            rate: '12% - 15% p.a.',
-            maxAmount: '₹5,00,000',
-            image: profile.selfie || 'https://images.unsplash.com/photo-1560250097-0b93528c311a?q=80&w=200&auto=format&fit=crop',
-          }));
-          setAvailableLenders(mappedLenders);
-        }
-
-        // 2. Fetch Active Days & Suppliers Metrics
+        // Fetch Active Days & Suppliers Metrics
         const { data: profileData } = await supabase
           .from('profiles')
           .select('created_at')
@@ -298,85 +267,7 @@ export default function DashboardScreen() {
     });
   };
 
-  const handleOpenLendersModal = async () => {
-    if (!user) return;
-    
-    // Check eligibility
-    const { data: existingLoans } = await supabase
-      .from('loan_offers')
-      .select('*, amount, interest_rate, amount_paid')
-      .eq('vendor_id', user.id)
-      .in('status', ['PENDING', 'ACCEPTED']);
-      
-    let hasActiveLoan = false;
-    
-    if (existingLoans && existingLoans.length > 0) {
-      for (const loan of existingLoans) {
-        if (loan.status === 'PENDING') {
-          hasActiveLoan = true;
-          break;
-        }
-        if (loan.status === 'ACCEPTED') {
-          const principal = Number(loan.amount);
-          const interest = Number(loan.interest_rate) || 0;
-          const totalLoanAmount = principal + (principal * (interest / 100));
-          const alreadyPaid = Number(loan.amount_paid) || 0;
-          
-          if (Math.round(alreadyPaid) < Math.round(totalLoanAmount)) {
-            hasActiveLoan = true;
-            break;
-          }
-        }
-      }
-    }
-    
-    if (hasActiveLoan) {
-      showToast('Active Loan Detected. Repayment required before new applications.', 'error');
-    } else {
-      setLendersModalVisible(true);
-    }
-  };
 
-  useEffect(() => {
-    if (applyLoan === 'true' && user?.role === 'VENDOR') {
-      router.setParams({ applyLoan: undefined });
-      handleOpenLendersModal();
-    }
-  }, [applyLoan, user?.role]);
-
-
-
-  const handleApplyLoan = async () => {
-    const amt = parseFloat(loanAmount.replace(/,/g, ''));
-    const intRate = parseFloat(proposedInterest) || 12.5;
-
-    if (isNaN(amt) || amt <= 0 || amt > 500000) {
-      showToast('Invalid Amount. Please enter a valid numerical value.', 'error');
-      return;
-    }
-
-    if (!user?.id || !selectedLender?.id) return;
-
-    const { error } = await supabase.from('loan_offers').insert([{
-      vendor_id: user.id,
-      lender_id: selectedLender.id,
-      amount: amt,
-      interest_rate: intRate,
-      tenure: `${loanTenure} Months`,
-      status: 'PENDING'
-    }]);
-
-    setLoanModalVisible(false);
-    
-    if (error) {
-      console.error("Insert error", error);
-      showToast('Submission Failed. Unable to process loan proposal.', 'error');
-    } else {
-      const lenderName = selectedLender?.name || 'Lender';
-      showToast(`Proposal Submitted. Awaiting review from ${lenderName}.`, 'success');
-    }
-    setSelectedLender(null);
-  };
 
   const handleLinkSupplier = () => {
     if (!supplierName) return;
@@ -923,149 +814,13 @@ export default function DashboardScreen() {
         <BottomTabBar 
           activeTab="home"
           userRole={user?.role}
-          onCenterPress={handleOpenLendersModal}
-
           onAccountPress={() => setAccountModalVisible(true)}
         />
       )}
 
       {/* -------------------- MODALS -------------------- */}
 
-      {/* 1. Available Lenders Modal */}
-      <Modal
-        visible={lendersModalVisible}
-        animationType="slide"
-        transparent
-        onRequestClose={() => setLendersModalVisible(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalCardContainer, { maxHeight: '80%' }]}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitleText}>Available Lenders</Text>
-              <Pressable onPress={() => setLendersModalVisible(false)} style={styles.modalCloseBtn}>
-                <SymbolView tintColor="#1c1c18" name="xmark" size={20} />
-              </Pressable>
-            </View>
-            
-            {availableLenders.length > 0 ? (
-              <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 24 }}>
-                {availableLenders.map((lender) => (
-                  <View key={lender.id} style={styles.lenderListCard}>
-                    <View style={styles.lenderListCardTop}>
-                      <Image source={{ uri: lender.image }} style={styles.lenderListAvatar} />
-                      <View style={{ flex: 1, marginLeft: 12 }}>
-                        <Text style={styles.lenderListName}>{lender.name}</Text>
-                        <Text style={styles.lenderListSub}>Max Limit: {lender.maxAmount}</Text>
-                        <Text style={styles.lenderListSub}>Rates: {lender.rate}</Text>
-                      </View>
-                    </View>
-                    <TouchableOpacity 
-                      style={styles.lenderListApplyBtn}
-                      onPress={() => {
-                        setSelectedLender(lender);
-                        setLendersModalVisible(false);
-                        setTimeout(() => setLoanModalVisible(true), 300);
-                      }}
-                    >
-                      <Text style={styles.lenderListApplyBtnText}>Apply Now</Text>
-                    </TouchableOpacity>
-                  </View>
-                ))}
-              </ScrollView>
-            ) : (
-              <View style={styles.lenderEmptyCard}>
-                <SymbolView name="business" size={40} tintColor="#6B6B6B" />
-                <Text style={styles.lenderEmptyText}>No lenders available right now.</Text>
-              </View>
-            )}
-          </View>
-        </View>
-      </Modal>
 
-      {/* 2. Submit Proposal Modal */}
-      <Modal
-        visible={loanModalVisible}
-        animationType="slide"
-        transparent
-        onRequestClose={() => setLoanModalVisible(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalCardContainer}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitleText}>Proposal to {selectedLender?.name?.split(' ')[0] || 'Lender'}</Text>
-              <Pressable onPress={() => setLoanModalVisible(false)} style={styles.modalCloseBtn}>
-                <SymbolView tintColor="#1c1c18" name="xmark" size={20} />
-              </Pressable>
-            </View>
-
-            <Text style={styles.inputLabel}>REQUESTED LOAN AMOUNT (₹)</Text>
-            <TextInput
-              style={styles.customModalInput}
-              placeholder="e.g. 50000"
-              placeholderTextColor="#A0A0A0"
-              keyboardType="numeric"
-              value={loanAmount}
-              onChangeText={setLoanAmount}
-            />
-
-            <Text style={styles.inputLabel}>PROPOSED INTEREST RATE (% p.a.)</Text>
-            <TextInput
-              style={styles.customModalInput}
-              placeholder="e.g. 12.5"
-              placeholderTextColor="#A0A0A0"
-              keyboardType="numeric"
-              value={proposedInterest}
-              onChangeText={setProposedInterest}
-            />
-
-            <Text style={styles.inputLabel}>SELECT TENURE</Text>
-            <View style={styles.tenureRow}>
-              <Pressable 
-                onPress={() => setLoanTenure(3)}
-                style={[styles.tenureOption, loanTenure === 3 && styles.tenureOptionActive]}
-              >
-                <Text style={[styles.tenureOptionText, loanTenure === 3 && styles.tenureOptionTextActive]}>3 Mo</Text>
-              </Pressable>
-              <Pressable 
-                onPress={() => setLoanTenure(6)}
-                style={[styles.tenureOption, loanTenure === 6 && styles.tenureOptionActive]}
-              >
-                <Text style={[styles.tenureOptionText, loanTenure === 6 && styles.tenureOptionTextActive]}>6 Mo</Text>
-              </Pressable>
-              <Pressable 
-                onPress={() => setLoanTenure(12)}
-                style={[styles.tenureOption, loanTenure === 12 && styles.tenureOptionActive]}
-              >
-                <Text style={[styles.tenureOptionText, loanTenure === 12 && styles.tenureOptionTextActive]}>12 Mo</Text>
-              </Pressable>
-            </View>
-
-            <View style={styles.repaymentSummaryCard}>
-              <Text style={styles.repaymentSummaryTitle}>ESTIMATED REPAYMENT DETAIL</Text>
-              <View style={styles.repaymentSummaryRow}>
-                <Text style={styles.repaymentDetailLabel}>Monthly EMI</Text>
-                <Text style={styles.repaymentDetailVal}>
-                  ₹{Math.round((parseFloat(loanAmount) || 0) * (1 + (parseFloat(proposedInterest) || 0) / 100) / loanTenure).toLocaleString('en-IN')} / mo
-                </Text>
-              </View>
-              <View style={styles.repaymentSummaryRow}>
-                <Text style={styles.repaymentDetailLabel}>Total Payback</Text>
-                <Text style={styles.repaymentDetailVal}>
-                  ₹{Math.round((parseFloat(loanAmount) || 0) * (1 + (parseFloat(proposedInterest) || 0) / 100)).toLocaleString('en-IN')}
-                </Text>
-              </View>
-            </View>
-
-            <Text style={styles.disbursementTargetText}>
-              By submitting this proposal, the lender will review your profile.
-            </Text>
-
-            <Pressable style={styles.modalPrimaryBtn} onPress={handleApplyLoan}>
-              <Text style={styles.modalPrimaryBtnText}>Submit Proposal</Text>
-            </Pressable>
-          </View>
-        </View>
-      </Modal>
 
       {/* 3. Link Supplier Modal */}
       <Modal

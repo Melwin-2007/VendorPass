@@ -23,6 +23,7 @@ export default function RootLayout() {
           <Stack.Screen name="(auth)" />
           <Stack.Screen name="(tabs)" />
           <Stack.Screen name="wallet" options={{ animation: 'slide_from_bottom' }} />
+          <Stack.Screen name="lenders-modal" options={{ presentation: 'transparentModal', animation: 'fade' }} />
         </Stack>
         <Toast />
       </AuthProvider>
