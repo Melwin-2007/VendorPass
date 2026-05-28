@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="./assets/images/logo-glow.png" alt="VendorPass Logo" width="200" style="margin-bottom: 20px;"/>
+  <img src="./assets/images/logo.svg" alt="VendorPass Logo" width="120" style="margin-bottom: 20px;"/>
 
   # 🚀 VendorPass
   **AI-Powered Behavioral Credit Intelligence for Bharat**
