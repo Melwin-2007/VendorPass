@@ -1,5 +1,6 @@
+![VendorPass Header](./assets/images/logo-glow.png)
+
 <div align="center">
-  ![VendorPass Logo](assets/images/logo-glow.png)
 
   # 🚀 VendorPass
   **AI-Powered Behavioral Credit Intelligence for Bharat**
