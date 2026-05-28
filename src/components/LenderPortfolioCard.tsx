@@ -87,6 +87,22 @@ export function LenderPortfolioCard({ portfolioStats, monthlyYields }: LenderPor
           );
         })}
       </View>
+
+      {selectedMonthIdx !== null && monthlyYields[selectedMonthIdx] !== undefined && (
+        <View style={styles.pcDetailPanel}>
+          <Text style={styles.pcDetailTitle}>MONTH {selectedMonthIdx + 1} PORTFOLIO DETAILS</Text>
+          <View style={styles.pcDetailRow}>
+            <Text style={styles.pcDetailLabel}>Yield Rate:</Text>
+            <Text style={styles.pcDetailValue}>{monthlyYields[selectedMonthIdx]?.toFixed(2)}% p.a.</Text>
+          </View>
+          <View style={styles.pcDetailRow}>
+            <Text style={styles.pcDetailLabel}>Est. Monthly Return:</Text>
+            <Text style={[styles.pcDetailValue, { color: '#D4820A' }]}>
+              ₹{Math.round((portfolioStats.capitalDeployed * (monthlyYields[selectedMonthIdx] / 100)) / 12).toLocaleString('en-IN')}
+            </Text>
+          </View>
+        </View>
+      )}
     </View>
   );
 }
@@ -163,5 +179,37 @@ const styles = StyleSheet.create({
     width: '100%',
     borderRadius: 4,
     minHeight: 4,
+  },
+  pcDetailPanel: {
+    backgroundColor: '#1C2E38',
+    borderRadius: 12,
+    padding: 12,
+    marginTop: 16,
+    borderWidth: 1,
+    borderColor: '#2A3B45',
+  },
+  pcDetailTitle: {
+    fontSize: 9,
+    fontWeight: 'bold',
+    color: '#8BA1B0',
+    letterSpacing: 1,
+    marginBottom: 8,
+    fontFamily: Platform.OS === 'web' ? 'Sora' : 'sans-serif',
+  },
+  pcDetailRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 4,
+  },
+  pcDetailLabel: {
+    fontSize: 12,
+    color: '#8BA1B0',
+    fontFamily: Platform.OS === 'web' ? 'DM Sans' : 'sans-serif',
+  },
+  pcDetailValue: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: '#ffffff',
+    fontFamily: Platform.OS === 'web' ? 'Sora' : 'sans-serif',
   },
 });

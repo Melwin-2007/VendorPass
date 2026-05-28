@@ -30,6 +30,19 @@ export default function HistoryScreen() {
   const [repayModalVisible, setRepayModalVisible] = useState(false);
   const [selectedRepayment, setSelectedRepayment] = useState<any>(null);
 
+  const [currentTime, setCurrentTime] = useState<number | null>(null);
+
+  useEffect(() => {
+    const frameId = requestAnimationFrame(() => {
+      if (!selectedRepayment) {
+        setCurrentTime(null);
+      } else {
+        setCurrentTime(Date.now());
+      }
+    });
+    return () => cancelAnimationFrame(frameId);
+  }, [selectedRepayment]);
+
   useEffect(() => {
     if (user?.role === 'VENDOR') {
       const fetchApps = async () => {
@@ -184,9 +197,7 @@ export default function HistoryScreen() {
     } else {
       showToast('Public broadcast request cancelled.', 'success');
     }
-  };
-
-  let amountDue = 0;
+  };  let amountDue = 0;
   let totalLoanAmount = 0;
   let nextUnlockMinutes = 0;
   let isFullyPaid = false;
@@ -194,7 +205,7 @@ export default function HistoryScreen() {
   let demoMonthsElapsed = 0;
   let emiAmount = 0;
 
-  if (selectedRepayment) {
+  if (selectedRepayment && currentTime !== null) {
     const principal = Number(selectedRepayment.amount);
     const interest = Number(selectedRepayment.interest_rate) || 0;
     totalLoanAmount = principal + (principal * (interest / 100));
@@ -204,7 +215,7 @@ export default function HistoryScreen() {
     emiAmount = totalLoanAmount / tenureMonths;
 
     const baseTime = selectedRepayment.accepted_at ? new Date(selectedRepayment.accepted_at).getTime() : new Date(selectedRepayment.created_at).getTime();
-    const elapsedMilliseconds = Date.now() - baseTime;
+    const elapsedMilliseconds = currentTime - baseTime;
     // 1 demo month = 5 real minutes (300,000 ms)
     demoMonthsElapsed = Math.floor(elapsedMilliseconds / (5 * 60 * 1000));
     const accruedAmount = demoMonthsElapsed * emiAmount;
@@ -221,12 +232,10 @@ export default function HistoryScreen() {
       amountDue = 0;
     } else if (amountDue <= 0) {
       amountDue = 0;
-      const baseTime = selectedRepayment.accepted_at ? new Date(selectedRepayment.accepted_at).getTime() : new Date(selectedRepayment.created_at).getTime();
       const nextUnlockTime = baseTime + ((demoMonthsElapsed + 1) * 5 * 60 * 1000);
-      nextUnlockMinutes = Math.ceil((nextUnlockTime - Date.now()) / (60 * 1000));
+      nextUnlockMinutes = Math.ceil((nextUnlockTime - currentTime) / (60 * 1000));
     }
   }
-
   const handleRepayLoan = async () => {
     if (!user || !selectedRepayment || amountDue <= 0) return;
 

@@ -88,7 +88,7 @@ export default function VerifyEmailScreen() {
         <Animated.View style={[styles.textBlock, animatedTextStyle]}>
           <Text style={styles.title}>Check your inbox</Text>
           <Text style={styles.subtitle}>
-            We've sent a verification link to your email address. Please click the link to verify your account and activate your VendorPASS profile.
+            {"We've sent a verification link to your email address. Please click the link to verify your account and activate your VendorPASS profile."}
           </Text>
         </Animated.View>
 
@@ -96,7 +96,7 @@ export default function VerifyEmailScreen() {
         <Animated.View style={[styles.infoCard, animatedTextStyle]}>
           <SymbolView tintColor="#895100" name="info" size={20} style={{ marginRight: 12 }} />
           <Text style={styles.infoText}>
-            Can't find the email? Check your spam or promotions folder.
+            {"Can't find the email? Check your spam or promotions folder."}
           </Text>
         </Animated.View>
       </View>

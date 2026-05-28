@@ -45,10 +45,6 @@ export default function WalletScreen() {
   const [description, setDescription] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  useEffect(() => {
-    fetchTransactions();
-  }, [user]);
-
   const fetchTransactions = async () => {
     if (!user) return;
     setLoading(true);
@@ -77,6 +73,13 @@ export default function WalletScreen() {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    const init = async () => {
+      await fetchTransactions();
+    };
+    init();
+  }, [user]);
 
   const handleTransactionSubmit = async () => {
     if (!user) return;

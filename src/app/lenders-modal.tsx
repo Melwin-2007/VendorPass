@@ -557,7 +557,7 @@ export default function LendersModalScreen() {
                   <View style={styles.reasonSection}>
                     <Text style={styles.termLabel}>REASON</Text>
                     <Text style={styles.reasonValueText} numberOfLines={2}>
-                      "{pendingRequest.reason}"
+                      {"\"" + pendingRequest.reason + "\""}
                     </Text>
                   </View>
                 )}

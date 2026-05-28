@@ -217,7 +217,7 @@ export default function LoginScreen() {
 
           {/* Footer Link */}
           <View style={styles.footerRow}>
-            <Text style={styles.footerText}>Don't have an account? </Text>
+            <Text style={styles.footerText}>{"Don't have an account? "}</Text>
             <Pressable onPress={() => router.push('/(auth)/role-selection')}>
               <Text style={styles.footerLink}>Join VendorPASS</Text>
             </Pressable>

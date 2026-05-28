@@ -329,9 +329,8 @@ function LenderBrowseScreen() {
   };
 
   useEffect(() => {
-    fetchVendors();
-
     const fetchUserData = async () => {
+      await fetchVendors();
       if (!user) return;
       const [watchRes, offerRes] = await Promise.all([
         supabase.from('watchlists').select('vendor_id').eq('lender_id', user.id),
