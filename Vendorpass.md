@@ -187,3 +187,10 @@ npm start
 * **Count-Up & Progress Slide-ins**: Added credit score count-up animations (from 300 to current score) and sliding animations for the 6 Scoring Pillars and default probability progress bars, triggering dynamically on active tab changes.
 * **Non-iOS SF Symbols Mapping**: Upgraded `symbol-view.tsx` with translations for new symbols (`arrow.left`, `checkmark.seal.fill`, `info.circle`, `chart.bar`, `exclamationmark.triangle`, `clock`) to display clean Expo vector icons on Android/Web.
 
+### 10. Demo Data Removal & Real Data Integrity
+* **Stripped Simulated Fallbacks**: Completely removed all placeholder/fallback data (e.g., "Arjun Singh", synthetic transaction generation, simulated active loans) across the Lender Dashboard (`index.tsx`), Portfolio screen (`portfolio.tsx`), and Vendor Details (`vendor-detail.tsx`). The UI now strictly relies on real Supabase data and gracefully displays empty states (e.g. "No active loans found").
+* **Public Request Fulfillment Lifecycle**: 
+  * Configured `handleApproveCredit` to automatically update a vendor's `public_loan_requests` status to `FULFILLED` the moment a lender accepts an offer. This correctly removes completed requests from the global "Top Opportunities" feed.
+  * Added bulletproof client-side filtering in `explore.tsx` to automatically hide obsolete broadcast requests if the lender has already submitted a counter-proposal on or after the request's creation date, handling any legacy bad data.
+  * Ensured portfolio metrics dynamically sum up the live `loans` array instead of using arbitrary fallback values.
+

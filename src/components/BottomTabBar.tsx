@@ -84,7 +84,7 @@ export function BottomTabBar({
 
 
 
-export function LenderBottomTabBar({ activeTab }: { activeTab: 'home' | 'browse' | 'portfolio' | 'repayments' | 'chat' }) {
+export function LenderBottomTabBar({ activeTab }: { activeTab?: 'home' | 'portfolio' | 'repayments' | 'chat' | 'browse' }) {
   return (
     <View style={styles.floatingTabBar}>
       <Pressable style={styles.tabItem} onPress={() => router.push('/(tabs)')}>
@@ -98,23 +98,23 @@ export function LenderBottomTabBar({ activeTab }: { activeTab: 'home' | 'browse'
         <Text style={activeTab === 'home' ? styles.activeTabText : styles.inactiveTabText}>Home</Text>
       </Pressable>
 
-      <Pressable style={styles.tabItem} onPress={() => router.push('/(tabs)/explore')}>
-        {activeTab === 'browse' ? (
+      <Pressable style={styles.tabItem} onPress={() => router.push('/(tabs)/portfolio')}>
+        {activeTab === 'portfolio' ? (
           <View style={styles.activeTabCircle}>
-            <SymbolView tintColor="#ffffff" name="search" size={22} />
+            <SymbolView tintColor="#ffffff" name="pie_chart" size={22} />
           </View>
         ) : (
-          <SymbolView tintColor="#8E8E93" name="search" size={22} />
+          <SymbolView tintColor="#8E8E93" name="pie_chart" size={22} />
         )}
-        <Text style={activeTab === 'browse' ? styles.activeTabText : styles.inactiveTabText}>Browse</Text>
+        <Text style={activeTab === 'portfolio' ? styles.activeTabText : styles.inactiveTabText}>Portfolio</Text>
       </Pressable>
 
       <View style={styles.centerTabContainer}>
         <Pressable 
-          style={({ pressed }) => [styles.centerTabButton, { backgroundColor: '#D4820A', borderColor: '#FFFFFF' }, { transform: [{ scale: pressed ? 0.95 : 1.0 }] }]}
-          onPress={() => router.push('/(tabs)')}
+          style={({ pressed }) => [styles.centerTabButton, { backgroundColor: '#CC8A00', borderColor: '#F5F0E8', shadowColor: '#CC8A00', shadowOpacity: 0.6, shadowRadius: 12, shadowOffset: { width: 0, height: 6 } }, { transform: [{ scale: pressed ? 0.95 : 1.0 }] }]}
+          onPress={() => router.push('/(tabs)/explore')}
         >
-          <SymbolView tintColor="#ffffff" name="pie_chart" size={26} />
+          <SymbolView tintColor="#ffffff" name="add" size={32} />
         </Pressable>
       </View>
 

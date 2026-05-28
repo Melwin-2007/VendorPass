@@ -123,7 +123,7 @@ export default function DashboardScreen() {
   useEffect(() => {
     if (user) {
       const frameId = requestAnimationFrame(() => {
-        const timeVal = user.created_at ? new Date(user.created_at).getTime() : Date.now() - 30 * 60 * 1000;
+        const timeVal = (user as any)?.created_at ? new Date((user as any).created_at).getTime() : Date.now() - 30 * 60 * 1000;
         setLenderBaseTime(timeVal);
         setLenderNowTime(Date.now());
       });
@@ -316,6 +316,9 @@ export default function DashboardScreen() {
       const { data: vendorData } = await supabase.from('profiles').select('name').eq('id', vendorId).single();
       const lenderName = lenderData?.name || 'Lender';
       const vendorName = vendorData?.name || 'Vendor';
+
+      // Mark any public loan request from this vendor as FULFILLED so it stops showing in Explore
+      await supabase.from('public_loan_requests').update({ status: 'FULFILLED' }).eq('vendor_id', vendorId).eq('status', 'PENDING');
 
       // 1. Send transaction for Lender
       await supabase.from('wallet_transactions').insert({
@@ -517,44 +520,7 @@ export default function DashboardScreen() {
           )}
         </View>
 
-        {/* AI Insight Section */}
-        {activeTrustScoreData?.score_explanation ? (
-          <View style={styles.insightBox}>
-            <SparkleWatermark />
-            <View style={styles.insightHeader}>
-              <SparkleIcon size={16} />
-              <Text style={styles.insightTitle}>TRUSTSCORE™ INSIGHT</Text>
-            </View>
-            <Text style={styles.insightText}>
-              {activeTrustScoreData.score_explanation}
-            </Text>
-            <Pressable 
-              style={styles.insightLinkBtn} 
-              onPress={() => setReportModalVisible(true)}
-            >
-              <Text style={styles.insightLinkLabel}>View Full Report </Text>
-              <SymbolView tintColor="#895100" name="arrow_forward" size={14} />
-            </Pressable>
-          </View>
-        ) : (
-          <View style={styles.insightBox}>
-            <SparkleWatermark />
-            <View style={styles.insightHeader}>
-              <SparkleIcon size={16} />
-              <Text style={styles.insightTitle}>AI INSIGHT</Text>
-            </View>
-            <Text style={styles.insightText}>
-              Your Tuesday sales are <Text style={styles.boldText}>40% higher</Text> — consider restocking your inventory on Mondays to meet peak demand.
-            </Text>
-            <Pressable 
-              style={styles.insightLinkBtn} 
-              onPress={() => setReportModalVisible(true)}
-            >
-              <Text style={styles.insightLinkLabel}>View Full Report </Text>
-              <SymbolView tintColor="#895100" name="arrow_forward" size={14} />
-            </Pressable>
-          </View>
-        )}
+
       </View>
     );
   };
@@ -603,64 +569,9 @@ export default function DashboardScreen() {
     const dbAcceptedOffers = lenderOffers.filter(o => o.status === 'ACCEPTED' && o.profiles?.name && o.profiles.name.trim() !== '');
     const pendingOffers = lenderOffers.filter(o => o.status === 'PENDING' && o.profiles?.name && o.profiles.name.trim() !== '');
 
-    const generateSimulatedLenderLoans = (lenderId: string, baseTime: number) => {
-      return [
-        {
-          id: 'sim-lender-loan-1',
-          lender_id: lenderId,
-          vendor_id: 'vendor-sim-1',
-          amount: 50000,
-          interest_rate: 12.0,
-          tenure: '6 Months',
-          status: 'ACCEPTED',
-          created_at: new Date(baseTime + 1 * 5 * 60 * 1000).toISOString(),
-          accepted_at: new Date(baseTime + 1.2 * 5 * 60 * 1000).toISOString(),
-          profiles: {
-            name: 'Raju Kirana Store',
-            selfie: 'https://lh3.googleusercontent.com/aida-public/AB6AXuBp-aRKkGDKeuwqhPEmq7g1UC6fAJe7VnCjIBkl8xQ_owajzWgfUPWgUMJOIyoiN0LKTUspoZaFUGMsePMDyMvyc8wOY0Ht8h_r-OZXBP_HQCuvHb2y_yMdS0aE_gbQkkTv3Lfk4ygKkKjRhjN_MvU6GCEuVhiMMajr7ZRd8kQ8WKCxD3dRBu_V3DmsoDaRhR4lC0m7DzQz96jcsebEXvsWN9aBxHGSMpo1wqkYa05F8THygZ30zTg55ArV1Ig9JnHR1x12es4h9pO8',
-            score: 742,
-          }
-        },
-        {
-          id: 'sim-lender-loan-2',
-          lender_id: lenderId,
-          vendor_id: 'vendor-sim-2',
-          amount: 80000,
-          interest_rate: 13.5,
-          tenure: '12 Months',
-          status: 'ACCEPTED',
-          created_at: new Date(baseTime + 2 * 5 * 60 * 1000).toISOString(),
-          accepted_at: new Date(baseTime + 2.1 * 5 * 60 * 1000).toISOString(),
-          profiles: {
-            name: 'Pooja Ceramics',
-            selfie: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=100&auto=format&fit=crop',
-            score: 795,
-          }
-        },
-        {
-          id: 'sim-lender-loan-3',
-          lender_id: lenderId,
-          vendor_id: 'vendor-sim-3',
-          amount: 30000,
-          interest_rate: 11.0,
-          tenure: '3 Months',
-          status: 'ACCEPTED',
-          created_at: new Date(baseTime + 4 * 5 * 60 * 1000).toISOString(),
-          accepted_at: new Date(baseTime + 4.3 * 5 * 60 * 1000).toISOString(),
-          profiles: {
-            name: 'Karan Organic Groceries',
-            selfie: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?q=80&w=100&auto=format&fit=crop',
-            score: 680,
-          }
-        }
-      ];
-    };
-
-    const baseTimeVal = lenderBaseTime || (user?.created_at ? new Date(user.created_at).getTime() : 1773489600000);
+    const baseTimeVal = lenderBaseTime || ((user as any)?.created_at ? new Date((user as any).created_at).getTime() : 1773489600000);
     const nowTimeVal = lenderNowTime || 1773489600000;
-    const acceptedOffers = dbAcceptedOffers.length > 0 
-      ? dbAcceptedOffers 
-      : generateSimulatedLenderLoans(user?.id || 'lender-id', baseTimeVal);
+    const acceptedOffers = dbAcceptedOffers;
 
     // Calculate amount_paid for simulated/fallback loans dynamically
     const acceptedOffersWithPaid = acceptedOffers.map(loan => {
@@ -808,6 +719,7 @@ export default function DashboardScreen() {
                 const diffMs = Math.max(0, nowTimeVal - startDate.getTime());
                 const monthsElapsed = Math.floor(diffMs / (5 * 60 * 1000)); // 5 minutes = 1 month in this project
                 const expectedPaid = Math.min(monthsElapsed * emi, totalLoan);
+                const hasGracePeriodExpired = (diffMs % (5 * 60 * 1000)) > (2 * 60 * 1000);
 
                 let badgeStyle = styles.lenderActiveBadgeGreen;
                 let badgeTextStyle = styles.lenderActiveBadgeTextGreen;
@@ -818,7 +730,7 @@ export default function DashboardScreen() {
                   badgeText = 'PAID';
                   badgeStyle = styles.lenderActiveBadgeGreen;
                   badgeTextStyle = styles.lenderActiveBadgeTextGreen;
-                } else if (totalPaid < expectedPaid) {
+                } else if (totalPaid < expectedPaid && hasGracePeriodExpired) {
                   badgeText = 'OVERDUE';
                   badgeStyle = styles.lenderActiveBadgeRed;
                   badgeTextStyle = styles.lenderActiveBadgeTextRed;

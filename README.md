@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="https://images.unsplash.com/photo-1613243555988-441166d4d6fd?q=80&w=800&auto=format&fit=crop" alt="VendorPass Header" width="100%" style="border-radius: 16px; margin-bottom: 20px;"/>
+  <img src="./assets/images/logo-glow.png" alt="VendorPass Header" width="100%" style="border-radius: 16px; margin-bottom: 20px;"/>
 
   # 🚀 VendorPass
   **AI-Powered Behavioral Credit Intelligence for Bharat**
@@ -43,6 +43,10 @@ A single unified application that radically alters its UI/UX based on the authen
 - **Score Count-Up:** The credit score display counts up dynamically from 300 to its current score on entry.
 - **Pillar Slides:** Scoring Pillars and risk indicators feature smooth progress bar sliding animations on tab changes.
 - **Cross-Platform Symbols:** Extended SF symbols mappings for perfect icon rendering on Android/Web.
+
+### 🔒 Live Supabase Sync & Data Integrity
+- **Real-Time Dashboards:** All lender portfolio metrics, active loans, and public broadcast requests are deeply synchronized with live Supabase data, avoiding any hardcoded fallbacks.
+- **Automated Request Fulfillment:** When a lender funds a broadcast request, it's immediately auto-fulfilled and purged from the global "Top Opportunities" feed to prevent obsolete queues.
 
 
 ### ⏱️ Accelerated "Physics Engine" (Demo Mode)

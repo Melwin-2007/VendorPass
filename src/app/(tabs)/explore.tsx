@@ -193,7 +193,7 @@ function LenderBrowseScreen() {
   const [selectedFilter, setSelectedFilter] = useState('Near Me');
   const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
   const [watchlists, setWatchlists] = useState<string[]>([]);
-  const [loanOffers, setLoanOffers] = useState<string[]>([]);
+  const [loanOffers, setLoanOffers] = useState<any[]>([]);
   const { user } = useAuth();
 
   // Custom offer modal states
@@ -341,7 +341,7 @@ function LenderBrowseScreen() {
         setWatchlists(watchRes.data.map(w => w.vendor_id));
       }
       if (offerRes.data) {
-        setLoanOffers(offerRes.data.map(o => o.vendor_id));
+        setLoanOffers(offerRes.data);
       }
     };
     fetchUserData();
@@ -429,6 +429,19 @@ function LenderBrowseScreen() {
 
   // Filter logic
   const filteredOpps = opportunities.filter((opp) => {
+    // Hide obsolete requests that the lender has already addressed
+    if (opp.isRealRequest && opp.realRequest) {
+      const reqTime = new Date(opp.realRequest.created_at).getTime();
+      const latestOffer = loanOffers
+        .filter(o => o.vendor_id === opp.id)
+        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0];
+        
+      // If we made an offer at or after the time of this request, hide it.
+      if (latestOffer && new Date(latestOffer.created_at).getTime() >= reqTime - 5000) {
+        return false;
+      }
+    }
+
     const matchesSearch = 
       opp.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       opp.location.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -460,7 +473,7 @@ function LenderBrowseScreen() {
 
   const renderOpportunityCard = (opp: Opportunity) => {
     const isFunded = opp.funding_status === 'FUNDED';
-    const hasOffered = loanOffers.includes(opp.id);
+    const hasOffered = loanOffers.some(o => o.vendor_id === opp.id);
 
     return (
       <Pressable 

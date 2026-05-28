@@ -587,6 +587,7 @@ export default function VendorDetailScreen() {
     note?: string;
     category?: string;
     location?: string;
+    viewOnly?: string;
   }>();
 
   const vendorId = params.vendorId;
@@ -626,52 +627,7 @@ export default function VendorDetailScreen() {
   // Extract interest from param or default to 12%
   const reqInterestText = params.isReal === 'true' ? '12%' : '12%'; 
 
-  // Generate realistic score-proportional baseline transactions spread over 6 virtual months (5 min = 1 Month)
-  const generateBaselineTransactions = (baseTime: number, score: number) => {
-    const list: any[] = [];
-    const avgAmount = score >= 750 ? 12000 : score >= 650 ? 8000 : 4000;
-    
-    for (let m = 0; m < 6; m++) {
-      const monthStart = baseTime + m * 5 * 60 * 1000;
-      
-      // Deterministic pseudo-random multipliers to preserve React 19 render purity
-      const mult1 = 0.8 + ((m * 7) % 10) * 0.04;
-      const mult2 = 0.8 + ((m * 3 + 2) % 10) * 0.04;
-      const mult3 = 0.8 + ((m * 9 + 5) % 10) * 0.04;
-      const mult4 = 0.8 + ((m * 13 + 1) % 10) * 0.04;
 
-      list.push({
-        id: `synth-credit-${m}-1`,
-        amount: Math.round(avgAmount * mult1),
-        type: 'ADD',
-        description: 'UPI customer payment received',
-        created_at: new Date(monthStart + 1 * 60 * 1000).toISOString()
-      });
-      list.push({
-        id: `synth-credit-${m}-2`,
-        amount: Math.round(avgAmount * 0.5 * mult2),
-        type: 'ADD',
-        description: 'Retail cash sale deposit',
-        created_at: new Date(monthStart + 2.5 * 60 * 1000).toISOString()
-      });
-      list.push({
-        id: `synth-credit-${m}-3`,
-        amount: Math.round(avgAmount * 0.3 * mult3),
-        type: 'ADD',
-        description: 'UPI customer payment received',
-        created_at: new Date(monthStart + 4 * 60 * 1000).toISOString()
-      });
-
-      list.push({
-        id: `synth-debit-${m}-1`,
-        amount: Math.round(avgAmount * 0.6 * mult4),
-        type: 'SEND',
-        description: 'Wholesale supplier invoice paid',
-        created_at: new Date(monthStart + 3 * 60 * 1000).toISOString()
-      });
-    }
-    return list;
-  };
 
   // Fetch Vendor Profile, Transactions, and Loans
   useEffect(() => {
@@ -709,16 +665,7 @@ export default function VendorDetailScreen() {
 
       } catch (err) {
         console.error('Error fetching vendor profile:', err);
-        setProfileData({
-          name: 'Arjun Singh',
-          selfie: 'https://lh3.googleusercontent.com/aida-public/AB6AXuBp-aRKkGDKeuwqhPEmq7g1UC6fAJe7VnCjIBkl8xQ_owajzWgfUPWgUMJOIyoiN0LKTUspoZaFUGMsePMDyMvyc8wOY0Ht8h_r-OZXBP_HQCuvHb2y_yMdS0aE_gbQkkTv3Lfk4ygKkKjRhjN_MvU6GCEuVhiMMajr7ZRd8kQ8WKCxD3dRBu_V3DmsoDaRhR4lC0m7DzQz96jcsebEXvsWN9aBxHGSMpo1wqkYa05F8THygZ30zTg55ArV1Ig9JnHR1x12es4h9pO8',
-          business_photo: 'https://images.unsplash.com/photo-1607349913338-fca6f7fc42d0?q=80&w=600&auto=format&fit=crop',
-          score: 782,
-          trust_score_data: {
-            trust_score: 782,
-            score_explanation: 'Arjun Singh operates a verified Retail vegetable shop in Dadar Dadar market. He has maintained a stable cash flow and shown consistent digital payment adoption over his 3.5 years of active operation.',
-          }
-        });
+        setProfileData(null);
       } finally {
         setLoading(false);
       }
@@ -835,20 +782,7 @@ export default function VendorDetailScreen() {
   const baseTime = baseTimeState || (profileData?.created_at ? new Date(profileData.created_at).getTime() : 1773489600000);
 
   const getMergedTransactions = () => {
-    const list = [...transactions];
-    if (transactions.length < 15) {
-      const baseline = generateBaselineTransactions(baseTime, score);
-      baseline.forEach(b => {
-        const exists = transactions.some(d => Math.abs(Number(d.amount) - b.amount) < 1 && d.type === b.type);
-        if (!exists) {
-          list.push({
-            ...b,
-            amount: Number(b.amount)
-          });
-        }
-      });
-    }
-    return list.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+    return [...transactions].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
   };
 
   const mergedTx = getMergedTransactions();
@@ -883,6 +817,8 @@ export default function VendorDetailScreen() {
   const getLoansList = () => {
     const list: any[] = [];
     loans.forEach(loan => {
+      if (loan.status !== 'ACCEPTED') return;
+      
       const principal = Number(loan.amount);
       const interest = Number(loan.interest_rate) || 0;
       const totalPayback = principal + (principal * (interest / 100));
@@ -904,30 +840,7 @@ export default function VendorDetailScreen() {
       });
     });
 
-    if (list.length === 0) {
-      list.push({
-        id: 'synth-loan-1',
-        lenderName: 'Amul Coop Credit',
-        disbursedDate: 'Disbursed 2 months ago (virtual)',
-        amount: 75000,
-        interestRate: 11.5,
-        tenure: '12 Months',
-        amountPaid: 83625,
-        totalPayback: 83625,
-        status: 'PAID'
-      });
-      list.push({
-        id: 'synth-loan-2',
-        lenderName: 'State Bank Micro',
-        disbursedDate: 'Disbursed 5 months ago (virtual)',
-        amount: 50000,
-        interestRate: 14.0,
-        tenure: '6 Months',
-        amountPaid: 57000,
-        totalPayback: 57000,
-        status: 'PAID'
-      });
-    }
+
 
     return list;
   };
@@ -1470,39 +1383,41 @@ export default function VendorDetailScreen() {
       </ScrollView>
 
       {/* 6. Sticky Bottom Action Bar */}
-      <View style={[styles.bottomActionBar, { paddingBottom: Math.max(insets.bottom, 12) }]}>
-        <View style={styles.termsDisplayRow}>
-          <View>
-            <Text style={styles.bottomBarLabel}>LOAN REQUESTED</Text>
-            <Text style={styles.bottomBarValue}>{reqAmountRaw} @ {reqInterestText} p.a.</Text>
+      {params.viewOnly !== 'true' && (
+        <View style={[styles.bottomActionBar, { paddingBottom: Math.max(insets.bottom, 12) }]}>
+          <View style={styles.termsDisplayRow}>
+            <View>
+              <Text style={styles.bottomBarLabel}>LOAN REQUESTED</Text>
+              <Text style={styles.bottomBarValue}>{reqAmountRaw} @ {reqInterestText} p.a.</Text>
+            </View>
+            <View style={{ alignItems: 'flex-end' }}>
+              <Text style={styles.bottomBarLabel}>TENURE</Text>
+              <Text style={styles.bottomBarValue}>{reqTenure}</Text>
+            </View>
           </View>
-          <View style={{ alignItems: 'flex-end' }}>
-            <Text style={styles.bottomBarLabel}>TENURE</Text>
-            <Text style={styles.bottomBarValue}>{reqTenure}</Text>
+
+          <View style={styles.buttonsRow}>
+            <Pressable onPress={handleDecline} style={styles.declineBtn}>
+              <Text style={styles.declineBtnText}>Decline</Text>
+            </Pressable>
+            
+            <Pressable onPress={handleApprove} style={{ flex: 1, marginLeft: 16 }}>
+              <LinearGradient
+                colors={['#D4820A', '#895100']}
+                style={styles.approveGradientBtn}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+              >
+                <Text style={styles.approveBtnText}>Approve Loan</Text>
+              </LinearGradient>
+            </Pressable>
           </View>
-        </View>
 
-        <View style={styles.buttonsRow}>
-          <Pressable onPress={handleDecline} style={styles.declineBtn}>
-            <Text style={styles.declineBtnText}>Decline</Text>
-          </Pressable>
-          
-          <Pressable onPress={handleApprove} style={{ flex: 1, marginLeft: 16 }}>
-            <LinearGradient
-              colors={['#D4820A', '#895100']}
-              style={styles.approveGradientBtn}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-            >
-              <Text style={styles.approveBtnText}>Approve Loan</Text>
-            </LinearGradient>
+          <Pressable onPress={() => setCounterModalVisible(true)} style={styles.counterOfferLinkBtn}>
+            <Text style={styles.counterOfferLinkText}>COUNTER OFFER</Text>
           </Pressable>
         </View>
-
-        <Pressable onPress={() => setCounterModalVisible(true)} style={styles.counterOfferLinkBtn}>
-          <Text style={styles.counterOfferLinkText}>COUNTER OFFER</Text>
-        </Pressable>
-      </View>
+      )}
 
       {/* 7. Counter Offer Sliding Bottom Sheet Modal */}
       <Modal
