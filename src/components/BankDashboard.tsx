@@ -15,6 +15,7 @@ import { SymbolView } from '@/components/symbol-view';
 import Toast from 'react-native-toast-message';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Colors, Spacing, BottomTabInset } from '@/constants/theme';
+import { useAuth } from '@/context/auth';
 
 // Custom font helper to resolve Google Fonts on web and default system fonts on mobile
 const FONT_SERIF = Platform.select({ web: 'Playfair Display', default: 'serif' });
@@ -59,6 +60,8 @@ const formatCrore = (amount: number): string => {
 const formatIndian = (num: number): string => num.toLocaleString('en-IN');
 
 export function BankDashboard() {
+  const { signOut } = useAuth();
+
   // Animation state values
   const countAnim = useRef(new Animated.Value(0)).current;
   const trancheEntrances = useRef(MOCK_TRANCHES.map(() => new Animated.Value(0))).current;
@@ -245,7 +248,10 @@ export function BankDashboard() {
           {["Browse Tranches", "New Syndication", "Portfolio", "At-Risk"].map((action) => (
             <Pressable
               key={action}
-              style={styles.quickActionPill}
+              style={({ pressed }) => [
+                styles.quickActionPill,
+                { transform: [{ scale: pressed ? 0.95 : 1 }] }
+              ]}
               onPress={() => handleQuickAction(action)}
             >
               <Text style={styles.quickActionText}>{action}</Text>
@@ -328,7 +334,10 @@ export function BankDashboard() {
               </View>
 
               <Pressable
-                style={styles.deployButton}
+                style={({ pressed }) => [
+                  styles.deployButton,
+                  { transform: [{ scale: pressed ? 0.98 : 1 }] }
+                ]}
                 onPress={() => handleOpenDeployModal(tranche)}
               >
                 <Text style={styles.deployButtonText}>Deploy Capital →</Text>
@@ -358,8 +367,14 @@ export function BankDashboard() {
                 </Text>
                 <View style={[
                   styles.statusChip,
-                  { backgroundColor: isActive ? '#E8F5E9' : '#F0E8D8' }
+                  { backgroundColor: isActive ? '#E8F5E9' : '#FFF8E1' }
                 ]}>
+                  <SymbolView 
+                    name={isActive ? "checkmark.circle.fill" : "lock"} 
+                    size={10} 
+                    tintColor={isActive ? "#2E7D32" : "#D4820A"} 
+                    style={{ marginRight: 4 }} 
+                  />
                   <Text style={[
                     styles.statusChipText,
                     { color: isActive ? '#2E7D32' : '#D4820A' }
@@ -419,6 +434,18 @@ export function BankDashboard() {
           </Pressable>
         </View>
       </View>
+
+      {/* SIGN OUT BUTTON */}
+      <Pressable
+        style={({ pressed }) => [
+          styles.signOutButton,
+          { opacity: pressed ? 0.8 : 1.0, transform: [{ scale: pressed ? 0.98 : 1 }] }
+        ]}
+        onPress={signOut}
+      >
+        <SymbolView tintColor="#C0392B" name="arrow.right.to.line" size={18} style={{ marginRight: 8 }} />
+        <Text style={styles.signOutButtonText}>Sign Out Bank Profile</Text>
+      </Pressable>
 
       {/* Bottom spacer for tabs padding */}
       <View style={{ height: BottomTabInset + Spacing.six }} />
@@ -665,24 +692,24 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   trancheCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#FFFDF9',
     borderRadius: 16,
     marginHorizontal: 16,
     padding: 16,
     borderWidth: 1,
-    borderColor: '#F0E8D8',
+    borderColor: '#EFE6D7',
     ...Platform.select({
       ios: {
         shadowColor: '#1A3A4A',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.04,
-        shadowRadius: 8,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.06,
+        shadowRadius: 12,
       },
       android: {
-        elevation: 1.5,
+        elevation: 3.5,
       },
       web: {
-        boxShadow: '0 2px 8px rgba(26,58,74,0.03)',
+        boxShadow: '0 4px 12px rgba(26,58,74,0.04)',
       }
     }),
   },
@@ -803,24 +830,24 @@ const styles = StyleSheet.create({
   },
   syndicationCard: {
     width: 220,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#FFFDF9',
     borderRadius: 16,
     padding: 16,
     borderWidth: 1,
-    borderColor: '#F0E8D8',
+    borderColor: '#EFE6D7',
     marginRight: 12,
     ...Platform.select({
       ios: {
         shadowColor: '#1A3A4A',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.04,
-        shadowRadius: 8,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.06,
+        shadowRadius: 10,
       },
       android: {
-        elevation: 1,
+        elevation: 2.5,
       },
       web: {
-        boxShadow: '0 2px 8px rgba(26,58,74,0.02)',
+        boxShadow: '0 4px 10px rgba(26,58,74,0.03)',
       }
     }),
   },
@@ -839,7 +866,9 @@ const styles = StyleSheet.create({
     marginRight: 6,
   },
   statusChip: {
-    borderRadius: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 12,
     paddingHorizontal: 8,
     paddingVertical: 3,
   },
@@ -1061,5 +1090,24 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
     color: '#446274',
+  },
+  signOutButton: {
+    flexDirection: 'row',
+    height: 48,
+    borderWidth: 1.5,
+    borderColor: '#EFE6D7',
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginHorizontal: 16,
+    marginTop: 16,
+    marginBottom: 8,
+    backgroundColor: '#FFFDF9',
+  },
+  signOutButtonText: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#C0392B',
+    fontFamily: FONT_SANS_DISPLAY,
   },
 });
