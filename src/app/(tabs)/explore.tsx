@@ -738,8 +738,109 @@ function LenderBrowseScreen() {
   );
 }
 
+function BankApiConsoleScreen() {
+  const safeAreaInsets = useSafeAreaInsets();
+  
+  const insets = {
+    ...safeAreaInsets,
+    bottom: safeAreaInsets.bottom + BottomTabInset + Spacing.three,
+  };
+
+  const handleCopy = () => {
+    Toast.show({ type: 'success', text1: 'API Key copied to clipboard', position: 'top' });
+  };
+
+  const handleInvite = () => {
+    Toast.show({ type: 'success', text1: 'Invite link copied. Share with your partners.', position: 'top' });
+  };
+
+  return (
+    <View style={[styles.lenderBrowseContainer, { paddingBottom: insets.bottom }]}>
+      {/* Header */}
+      <View style={styles.lenderBrowseHeader}>
+        <View style={styles.lenderNavLeft}>
+          <Image
+            alt="Bank Profile"
+            style={styles.lenderNavAvatar}
+            source={{ uri: 'https://images.unsplash.com/photo-1560250097-0b93528c311a?q=80&w=200&auto=format&fit=crop' }}
+          />
+          <Text style={styles.lenderWordmark}>Vendor<Text style={{ color: '#895100' }}>PASS</Text></Text>
+        </View>
+        <View style={styles.lenderNavRight}>
+          <Pressable onPress={() => Toast.show({type:'info',text1:'Docs',position:'top'})} style={styles.navIconPressable}>
+            <SymbolView name="doc.text" size={22} tintColor="#534435" />
+          </Pressable>
+        </View>
+      </View>
+
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 24, paddingBottom: 100 }}>
+        <Text style={{ fontSize: 24, fontWeight: '700', color: '#1A3A4A', fontFamily: Platform.OS === 'web' ? 'Playfair Display' : 'serif', marginBottom: 8 }}>
+          TrustScore™ API Console
+        </Text>
+        <Text style={{ fontSize: 14, color: '#6B6B6B', marginBottom: 32 }}>
+          Manage your API credentials and track your institutional underwriting requests.
+        </Text>
+
+        {/* API Key Box */}
+        <View style={{ backgroundColor: '#1A3A4A', borderRadius: 16, padding: 20, marginBottom: 24 }}>
+          <Text style={{ fontSize: 11, color: '#A0B0BA', fontWeight: '700', letterSpacing: 1, marginBottom: 12 }}>
+            LIVE API KEY
+          </Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.3)', padding: 12, borderRadius: 8 }}>
+            <Text style={{ flex: 1, color: '#FFF', fontFamily: Platform.OS === 'web' ? 'JetBrains Mono' : 'monospace', fontSize: 13 }} numberOfLines={1}>
+              sk_live_vendorpass_9x8f2k1m...
+            </Text>
+            <Pressable onPress={handleCopy} style={{ padding: 8, backgroundColor: '#D4820A', borderRadius: 8, marginLeft: 12 }}>
+              <SymbolView name="doc.on.doc" size={16} tintColor="#FFF" />
+            </Pressable>
+          </View>
+        </View>
+
+        {/* Usage Bar */}
+        <View style={{ backgroundColor: '#FFF', borderRadius: 16, padding: 20, marginBottom: 24, borderWidth: 1, borderColor: '#E8E0D5' }}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12 }}>
+            <Text style={{ fontSize: 12, fontWeight: '700', color: '#1A3A4A' }}>API USAGE TODAY</Text>
+            <Text style={{ fontSize: 12, fontWeight: '700', color: '#895100' }}>2,450 / 10,000</Text>
+          </View>
+          <View style={{ height: 8, backgroundColor: '#E8E0D5', borderRadius: 4, overflow: 'hidden' }}>
+            <View style={{ width: '24.5%', height: '100%', backgroundColor: '#D4820A', borderRadius: 4 }} />
+          </View>
+        </View>
+
+        {/* Code Snippet */}
+        <View style={{ backgroundColor: '#F9F5EF', borderRadius: 16, padding: 20, marginBottom: 24, borderWidth: 1, borderColor: '#E8E0D5' }}>
+          <Text style={{ fontSize: 11, color: '#6B6B6B', fontWeight: '700', letterSpacing: 1, marginBottom: 12 }}>
+            SAMPLE CURL COMMAND
+          </Text>
+          <View style={{ backgroundColor: '#1C1C1E', padding: 16, borderRadius: 12 }}>
+            <Text style={{ color: '#A0B0BA', fontFamily: Platform.OS === 'web' ? 'JetBrains Mono' : 'monospace', fontSize: 12, lineHeight: 20 }}>
+              <Text style={{ color: '#D4820A' }}>curl</Text> -X POST https://api.vendorpass.com/v1/score \
+              {'\n'}  -H <Text style={{ color: '#2D7D46' }}>"Authorization: Bearer sk_live_..."</Text> \
+              {'\n'}  -d <Text style={{ color: '#2D7D46' }}>'{"{"}"vendor_id":"V-00123"{"}"}'</Text>
+            </Text>
+          </View>
+        </View>
+
+        {/* Invite Button */}
+        <Pressable 
+          style={{ backgroundColor: '#D4820A', borderRadius: 16, paddingVertical: 18, alignItems: 'center', flexDirection: 'row', justifyContent: 'center' }}
+          onPress={handleInvite}
+        >
+          <SymbolView name="person.badge.plus" size={20} tintColor="#FFF" style={{ marginRight: 8 }} />
+          <Text style={{ color: '#FFF', fontSize: 16, fontWeight: '700' }}>Invite a Partner</Text>
+        </Pressable>
+      </ScrollView>
+
+      <LenderBottomTabBar activeTab="explore" />
+    </View>
+  );
+}
+
 export default function ExploreScreen() {
   const { user } = useAuth();
+  if (user?.role === 'BANK') {
+    return <BankApiConsoleScreen />;
+  }
   if (user?.role === 'LENDER') {
     return <LenderBrowseScreen />;
   }

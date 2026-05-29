@@ -24,6 +24,7 @@ import { supabase } from '@/lib/supabase';
 import Svg, { Path } from 'react-native-svg';
 import { LinearGradient } from 'expo-linear-gradient';
 import { LenderPortfolioCard } from '@/components/LenderPortfolioCard';
+import { BankDashboard } from '@/components/BankDashboard';
 
 // Custom sparkles/stars SVGs to match the high-end mockup design
 function SparkleIcon({ size = 18, color = '#895100' }) {
@@ -110,6 +111,15 @@ export default function DashboardScreen() {
 
   // Score gauge offset state for load animation (radius = 70, semi-circle arc length = 220)
   const [gaugeOffset, setGaugeOffset] = useState(220);
+
+  // Bank Dashboard States
+  const [tranches, setTranches] = useState<any[]>([]);
+  const [syndications, setSyndications] = useState<any[]>([]);
+  const [deployModalVisible, setDeployModalVisible] = useState(false);
+  const [selectedTranche, setSelectedTranche] = useState<any>(null);
+  const [deployAmount, setDeployAmount] = useState('50000000');
+  const [deployTenure, setDeployTenure] = useState(12);
+  const [isDeploying, setIsDeploying] = useState(false);
 
   // Local state for vendor activities
   const [localTrustScoreData, setLocalTrustScoreData] = useState<any>(null);
@@ -278,6 +288,35 @@ export default function DashboardScreen() {
     }
   }, [user?.role, user?.id]);
 
+  // Fetch dynamic bank tranches and syndications
+  useEffect(() => {
+    if (user?.role === 'BANK') {
+      const fetchBankData = async () => {
+        const { data: tData } = await supabase.from('trust_tranches').select('*').order('min_score', { ascending: false });
+        if (tData) setTranches(tData);
+
+        const { data: sData } = await supabase.from('syndicate_investments')
+          .select('*, trust_tranches(tranche_label)')
+          .eq('bank_id', user.id)
+          .order('created_at', { ascending: false });
+        if (sData) setSyndications(sData);
+      };
+      
+      // 1. Fetch immediately
+      fetchBankData();
+      
+      // 2. Sync in background, then fetch again
+      supabase.functions.invoke('sync-tranches').then(() => {
+        fetchBankData();
+      }).catch(() => {}); // silent
+
+      const sub = supabase.channel(`bank_updates_${Date.now()}_${Math.random()}`)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'syndicate_investments', filter: `bank_id=eq.${user.id}` }, fetchBankData)
+        .subscribe();
+      return () => { supabase.removeChannel(sub); };
+    }
+  }, [user?.role, user?.id]);
+
   // Helper for showing a temporary toast notification
   const showToast = (message: string, type: 'success' | 'error' | 'info' = 'info') => {
     Toast.show({
@@ -345,6 +384,47 @@ export default function DashboardScreen() {
     } else {
       showToast('Application Declined. Request has been closed.', 'info');
     }
+  };
+
+  const handleDeployCapital = async () => {
+    if (!user || !selectedTranche) return;
+    setIsDeploying(true);
+    const amt = parseFloat(deployAmount.replace(/,/g, ''));
+    if (isNaN(amt) || amt <= 0) {
+      showToast('Invalid Amount', 'error');
+      setIsDeploying(false);
+      return;
+    }
+    
+    // Debit bank wallet
+    const { error: txErr } = await supabase.from('wallet_transactions').insert({
+      user_id: user.id,
+      amount: amt,
+      type: 'SEND',
+      description: `Syndicate Deployment — ${selectedTranche.tranche_label}`
+    });
+    
+    if (txErr) {
+      showToast('Transaction failed', 'error');
+      setIsDeploying(false);
+      return;
+    }
+    
+    // Create syndication record
+    const { error: synErr } = await supabase.from('syndicate_investments').insert({
+      bank_id: user.id,
+      tranche_id: selectedTranche.id,
+      amount_deployed: amt,
+      status: 'ACTIVE'
+    });
+    
+    if (synErr) {
+      showToast('Investment recording failed', 'error');
+    } else {
+      showToast('Success! Capital successfully syndicated.', 'success');
+      setDeployModalVisible(false);
+    }
+    setIsDeploying(false);
   };
 
 
@@ -798,6 +878,151 @@ export default function DashboardScreen() {
     );
   };
 
+  const renderBankDashboard = () => {
+    const totalDeployed = syndications.reduce((sum, s) => sum + Number(s.amount_deployed), 0);
+    const activeTranchesCount = tranches.length;
+    const avgScore = tranches.length > 0 ? (tranches.reduce((sum, t) => sum + Number(t.avg_score), 0) / activeTranchesCount) : 0;
+
+    return (
+      <View style={styles.lenderDashboardContainer}>
+        {/* Hero Macro Card */}
+        <LinearGradient
+          colors={['#1A3A4A', '#0A1A24']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.lenderHeroCard}
+        >
+          <Text style={styles.lenderHeroLabel}>TOTAL CAPITAL SYNDICATED</Text>
+          <View style={styles.lenderHeroAmountRow}>
+            <Text style={styles.lenderHeroCurrency}>₹</Text>
+            <Text style={styles.lenderHeroValue}>{totalDeployed.toLocaleString('en-IN')}</Text>
+          </View>
+          <View style={styles.lenderHeroDivider} />
+          <View style={styles.lenderHeroStatsRow}>
+            <View style={styles.lenderHeroStatItem}>
+              <Text style={styles.lenderHeroStatLabel}>ACTIVE TRANCHES</Text>
+              <Text style={styles.lenderHeroStatValue}>{activeTranchesCount}</Text>
+            </View>
+            <View style={[styles.lenderHeroStatItem, { alignItems: 'center' }]}>
+              <Text style={styles.lenderHeroStatLabel}>AVG PORTFOLIO SCORE</Text>
+              <Text style={styles.lenderHeroStatValue}>{Math.round(avgScore)}</Text>
+            </View>
+            <View style={[styles.lenderHeroStatItem, { alignItems: 'flex-end' }]}>
+              <Text style={styles.lenderHeroStatLabel}>YIELD RATE</Text>
+              <Text style={[styles.lenderHeroStatValue, { color: '#2D7D46' }]}>14.2%</Text>
+            </View>
+          </View>
+        </LinearGradient>
+
+        {/* Tranche Browser */}
+        <View style={styles.lenderSectionContainer}>
+          <View style={styles.lenderSectionHeader}>
+            <Text style={styles.lenderSectionTitle}>TrustScore Tranches</Text>
+          </View>
+          
+          <View style={{ gap: 12 }}>
+            {tranches.map(tranche => {
+              const maxScore = 850;
+              const barWidth = `${Math.min(100, Math.max(0, (tranche.avg_score / maxScore) * 100))}%`;
+              const barColor = tranche.avg_score >= 700 ? '#2D7D46' : tranche.avg_score >= 600 ? '#D4820A' : '#C0392B';
+              
+              return (
+                <View key={tranche.id} style={styles.lenderCard}>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                    <View>
+                      <Text style={{ fontSize: 16, fontWeight: '700', color: '#1C1C1E' }}>{tranche.tranche_label}</Text>
+                      <Text style={{ fontSize: 12, color: '#6B6B6B', marginTop: 4 }}>Score Band: {tranche.min_score} - {tranche.max_score}</Text>
+                    </View>
+                    <View style={{ backgroundColor: '#ffdcbc40', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12 }}>
+                      <Text style={{ fontSize: 12, fontWeight: '700', color: '#895100' }}>{tranche.vendor_count} Vendors</Text>
+                    </View>
+                  </View>
+                  
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 16 }}>
+                    <View>
+                      <Text style={{ fontSize: 11, color: '#8E8E93', fontWeight: 'bold' }}>CAPITAL REQUIRED</Text>
+                      <Text style={{ fontSize: 15, fontWeight: '700', color: '#1C1C1E', marginTop: 2 }}>₹{Number(tranche.total_capital_required).toLocaleString('en-IN')}</Text>
+                    </View>
+                    <View style={{ alignItems: 'flex-end' }}>
+                      <Text style={{ fontSize: 11, color: '#8E8E93', fontWeight: 'bold' }}>AVG SCORE</Text>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2 }}>
+                        <Text style={{ fontSize: 15, fontWeight: '700', color: barColor, marginRight: 8 }}>{Math.round(tranche.avg_score)}</Text>
+                        <View style={{ width: 60, height: 6, backgroundColor: '#E8E0D5', borderRadius: 3, overflow: 'hidden' }}>
+                          <View style={{ width: barWidth as any, height: '100%', backgroundColor: barColor, borderRadius: 3 }} />
+                        </View>
+                      </View>
+                    </View>
+                  </View>
+                  
+                  <Pressable 
+                    onPress={() => {
+                      setSelectedTranche(tranche);
+                      setDeployModalVisible(true);
+                    }}
+                    style={{ backgroundColor: '#D4820A', padding: 14, borderRadius: 12, alignItems: 'center' }}
+                  >
+                    <Text style={{ color: '#fff', fontSize: 14, fontWeight: 'bold' }}>Deploy Capital</Text>
+                  </Pressable>
+                </View>
+              );
+            })}
+          </View>
+        </View>
+
+        {/* Active Syndications Feed */}
+        <View style={styles.lenderSectionContainer}>
+          <View style={styles.lenderSectionHeader}>
+            <Text style={styles.lenderSectionTitle}>Active Syndications</Text>
+          </View>
+          
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 16, paddingBottom: 16 }}>
+            {syndications.length > 0 ? syndications.map(syn => {
+              const monthsElapsed = Math.floor((Date.now() - new Date(syn.created_at).getTime()) / (5 * 60 * 1000));
+              const tenure = 12;
+              return (
+                <View key={syn.id} style={[styles.lenderCard, { width: 260 }]}>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                    <Text style={{ fontSize: 14, fontWeight: '700', color: '#1C1C1E', flex: 1 }} numberOfLines={1}>
+                      {syn.trust_tranches?.tranche_label || 'Tranche Investment'}
+                    </Text>
+                    <View style={{ backgroundColor: '#E8F6F3', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 }}>
+                      <Text style={{ fontSize: 10, fontWeight: 'bold', color: '#2D7D46' }}>{syn.status}</Text>
+                    </View>
+                  </View>
+                  <Text style={{ fontSize: 20, fontWeight: '700', color: '#1C1C1E', marginBottom: 8 }}>
+                    ₹{Number(syn.amount_deployed).toLocaleString('en-IN')}
+                  </Text>
+                  <Text style={{ fontSize: 12, color: '#6B6B6B' }}>
+                    Month {monthsElapsed} / {tenure}
+                  </Text>
+                  <View style={{ height: 4, backgroundColor: '#E8E0D5', borderRadius: 2, marginTop: 8, overflow: 'hidden' }}>
+                    <View style={{ width: `${Math.min(100, (monthsElapsed/tenure)*100)}%`, height: '100%', backgroundColor: '#2D7D46', borderRadius: 2 }} />
+                  </View>
+                </View>
+              );
+            }) : (
+               <View style={styles.lenderEmptyCard}>
+                 <SymbolView name="inventory_2" size={40} tintColor="#6B6B6B" />
+                 <Text style={styles.lenderEmptyText}>No active syndications.</Text>
+               </View>
+            )}
+          </ScrollView>
+        </View>
+        
+        {/* Global Sign Out Button for Bank */}
+        <Pressable
+          style={({ pressed }) => [
+            styles.lenderSignOutBtn,
+            { opacity: pressed ? 0.8 : 1.0 },
+          ]}
+          onPress={signOut}>
+          <SymbolView tintColor="#C0392B" name="arrow.right.to.line" size={18} style={{ marginRight: 6 }} />
+          <Text style={styles.lenderSignOutText}>Sign Out Bank Profile</Text>
+        </Pressable>
+      </View>
+    );
+  };
+
   if (loading) {
     return (
       <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
@@ -807,29 +1032,41 @@ export default function DashboardScreen() {
   }
 
   const isLender = user?.role === 'LENDER';
+  const isBank = user?.role === 'BANK';
+
+  if (isBank) {
+    return (
+      <View style={[styles.container, { backgroundColor: '#fdf9f3' }]}>
+        <BankDashboard />
+        <LenderBottomTabBar activeTab="home" />
+      </View>
+    );
+  }
 
   return (
-    <View style={[styles.container, { backgroundColor: isLender ? '#fdf9f3' : '#F9F5EF' }]}>
+    <View style={[styles.container, { backgroundColor: isLender || isBank ? '#fdf9f3' : '#F9F5EF' }]}>
 
 
       {isLender && renderLenderTopAppBar()}
+      {isBank && renderLenderTopAppBar()}
+      {/* Reusing top bar design for Bank */}
 
       <ScrollView
         style={[
           styles.scrollView,
-          isLender && { marginTop: 64, marginBottom: 80 }
+          (isLender || isBank) && { marginTop: 64, marginBottom: 80 }
         ]}
         contentContainerStyle={[
           styles.contentContainer,
           contentPlatformStyle,
-          isLender && { paddingTop: 16, paddingBottom: 32 }
+          (isLender || isBank) && { paddingTop: 16, paddingBottom: 32 }
         ]}>
         
-        {isLender ? renderLenderDashboard() : renderVendorDashboard()}
+        {isBank ? renderBankDashboard() : isLender ? renderLenderDashboard() : renderVendorDashboard()}
 
       </ScrollView>
 
-      {isLender ? (
+      {isLender || isBank ? (
         <LenderBottomTabBar activeTab="home" />
       ) : (
         <BottomTabBar 
@@ -841,7 +1078,88 @@ export default function DashboardScreen() {
 
       {/* -------------------- MODALS -------------------- */}
 
+      {/* Deploy Capital Modal (Bank) */}
+      <Modal
+        visible={deployModalVisible}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setDeployModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCardContainer}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitleText}>Deploy Capital</Text>
+              <Pressable onPress={() => setDeployModalVisible(false)} style={styles.modalCloseBtn}>
+                <SymbolView tintColor="#1c1c18" name="xmark" size={20} />
+              </Pressable>
+            </View>
+            {selectedTranche && (
+              <View style={{ paddingTop: 16 }}>
+                <View style={styles.repaymentSummaryCard}>
+                  <Text style={styles.repaymentSummaryTitle}>TRANCHE SUMMARY</Text>
+                  <View style={styles.repaymentSummaryRow}>
+                    <Text style={styles.repaymentDetailLabel}>Target Tranche</Text>
+                    <Text style={styles.repaymentDetailVal}>{selectedTranche.tranche_label}</Text>
+                  </View>
+                  <View style={styles.repaymentSummaryRow}>
+                    <Text style={styles.repaymentDetailLabel}>Vendors Available</Text>
+                    <Text style={styles.repaymentDetailVal}>{selectedTranche.vendor_count}</Text>
+                  </View>
+                  <View style={styles.repaymentSummaryRow}>
+                    <Text style={styles.repaymentDetailLabel}>Total Capital Req.</Text>
+                    <Text style={styles.repaymentDetailVal}>₹{Number(selectedTranche.total_capital_required).toLocaleString('en-IN')}</Text>
+                  </View>
+                </View>
 
+                <Text style={styles.inputLabel}>AMOUNT TO DEPLOY (₹)</Text>
+                <TextInput
+                  style={styles.customModalInput}
+                  keyboardType="numeric"
+                  value={deployAmount}
+                  onChangeText={setDeployAmount}
+                />
+
+                <Text style={styles.inputLabel}>SYNDICATE TENURE</Text>
+                <View style={styles.tenureRow}>
+                  {[6, 12, 24].map((t) => (
+                    <Pressable
+                      key={t}
+                      style={[styles.tenureOption, deployTenure === t && styles.tenureOptionActive]}
+                      onPress={() => setDeployTenure(t)}
+                    >
+                      <Text style={[styles.tenureOptionText, deployTenure === t && styles.tenureOptionTextActive]}>
+                        {t}
+                      </Text>
+                      <Text style={[styles.tenureSubtext, deployTenure === t && styles.tenureSubtextActive]}>
+                        Months
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
+
+                <View style={{ marginTop: 16, backgroundColor: '#E8F5E9', padding: 12, borderRadius: 12, alignItems: 'center' }}>
+                  <Text style={{ fontSize: 11, color: '#2D7D46', fontWeight: 'bold' }}>PROJECTED YIELD</Text>
+                  <Text style={{ fontSize: 16, color: '#2D7D46', fontWeight: '700', marginTop: 4 }}>
+                    ₹{((parseFloat(deployAmount) || 0) * 0.142).toLocaleString('en-IN')} / year
+                  </Text>
+                </View>
+
+                <Pressable
+                  style={[styles.modalPrimaryBtn, isDeploying && { opacity: 0.7 }]}
+                  onPress={handleDeployCapital}
+                  disabled={isDeploying}
+                >
+                  {isDeploying ? (
+                    <ActivityIndicator color="#fff" />
+                  ) : (
+                    <Text style={styles.modalPrimaryBtnText}>Confirm Syndication</Text>
+                  )}
+                </Pressable>
+              </View>
+            )}
+          </View>
+        </View>
+      </Modal>
 
       {/* 3. Link Supplier Modal */}
       <Modal

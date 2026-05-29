@@ -65,7 +65,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         username: profileData?.username || metadata?.username || 'user',
         email: profileData?.email || metadata?.email || '',
         phone: profileData?.phone || metadata?.phone || '',
-        role: (profileData?.role || metadata?.role || 'VENDOR') as UserRole,
+        role: (profileData?.role?.toUpperCase() || metadata?.role?.toUpperCase() || 'VENDOR') as UserRole,
         selfie: profileData?.selfie || metadata?.selfie || null,
         businessPhoto: profileData?.business_photo || metadata?.businessPhoto || null,
         score: profileData?.score ?? metadata?.score ?? (metadata?.role === 'VENDOR' ? 620 : 0),
@@ -85,6 +85,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               businessPhoto: payload.new.business_photo || current.businessPhoto,
               score: payload.new.score !== undefined ? payload.new.score : current.score,
               trustScoreData: payload.new.trust_score_data !== undefined ? payload.new.trust_score_data : current.trustScoreData,
+              role: (payload.new.role?.toUpperCase() || current.role) as UserRole,
             } : null);
           }
         })
