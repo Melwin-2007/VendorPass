@@ -53,29 +53,10 @@ export default function HistoryScreen() {
           .eq('vendor_id', user.id)
           .order('created_at', { ascending: false });
         
-        // Fetch public loan requests
-        const { data: publicReqs, error: reqsErr } = await supabase
-          .from('public_loan_requests')
-          .select('*')
-          .eq('vendor_id', user.id)
-          .eq('status', 'PENDING')
-          .order('created_at', { ascending: false });
-        
         let merged: any[] = [];
         if (offers) {
           const validOffers = offers.filter((o: any) => o.profiles?.name && o.profiles.name.trim() !== '');
           merged = [...validOffers];
-        }
-        if (publicReqs) {
-          const mappedReqs = publicReqs.map(r => ({
-            ...r,
-            isPublicRequest: true,
-            profiles: {
-              name: 'Public Broadcasting Feed',
-              selfie: 'https://lh3.googleusercontent.com/aida-public/AB6AXuBp-aRKkGDKeuwqhPEmq7g1UC6fAJe7VnCjIBkl8xQ_owajzWgfUPWgUMJOIyoiN0LKTUspoZaFUGMsePMDyMvyc8wOY0Ht8h_r-OZXBP_HQCuvHb2y_yMdS0aE_gbQkkTv3Lfk4ygKkKjRhjN_MvU6GCEuVhiMMajr7ZRd8kQ8WKCxD3dRBu_V3DmsoDaRhR4lC0m7DzQz96jcsebEXvsWN9aBxHGSMpo1wqkYa05F8THygZ30zTg55ArV1Ig9JnHR1x12es4h9pO8'
-            }
-          }));
-          merged = [...merged, ...mappedReqs];
         }
         
         setVendorApplications(merged);
@@ -86,9 +67,6 @@ export default function HistoryScreen() {
       const subscription = supabase
         .channel(`vendor_history_changes_${Date.now()}_${Math.random()}`)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'loan_offers', filter: `vendor_id=eq.${user.id}` }, () => {
-          fetchApps();
-        })
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'public_loan_requests', filter: `vendor_id=eq.${user.id}` }, () => {
           fetchApps();
         })
         .subscribe();
@@ -186,18 +164,7 @@ export default function HistoryScreen() {
     }
   };
 
-  const handleVendorCancelPublicRequest = async (id: string) => {
-    const { error } = await supabase
-      .from('public_loan_requests')
-      .delete()
-      .eq('id', id);
-      
-    if (error) {
-      showToast('Cancellation failed. Try again.', 'error');
-    } else {
-      showToast('Public broadcast request cancelled.', 'success');
-    }
-  };  let amountDue = 0;
+  let amountDue = 0;
   let totalLoanAmount = 0;
   let nextUnlockMinutes = 0;
   let isFullyPaid = false;
@@ -390,20 +357,7 @@ export default function HistoryScreen() {
               );
             })()}
             {app.status === 'PENDING' && (
-              app.isPublicRequest ? (
-                <View style={{ marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: '#E8E0D5', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <View>
-                    <Text style={{ fontSize: 9, color: '#8E8E93', fontWeight: 'bold', letterSpacing: 0.5 }}>STATUS</Text>
-                    <Text style={{ fontSize: 13, fontWeight: '600', color: '#D4820A', marginTop: 2 }}>Broadcasting to Lenders</Text>
-                  </View>
-                  <Pressable
-                    onPress={() => handleVendorCancelPublicRequest(app.id)}
-                    style={{ backgroundColor: '#E74C3C15', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 12 }}
-                  >
-                    <Text style={{ color: '#E74C3C', fontSize: 12, fontWeight: 'bold' }}>Cancel Broadcast</Text>
-                  </Pressable>
-                </View>
-              ) : app.created_by === 'VENDOR' ? (
+              app.created_by === 'VENDOR' ? (
                 <View style={{ marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: '#E8E0D5', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
                   <View>
                     <Text style={{ fontSize: 9, color: '#8E8E93', fontWeight: 'bold', letterSpacing: 0.5 }}>STATUS</Text>

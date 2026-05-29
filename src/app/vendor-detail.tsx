@@ -588,6 +588,7 @@ export default function VendorDetailScreen() {
     category?: string;
     location?: string;
     viewOnly?: string;
+    interest_rate?: string;
   }>();
 
   const vendorId = params.vendorId;
@@ -625,7 +626,8 @@ export default function VendorDetailScreen() {
   const reqLocation = params.location || 'Mumbai';
   
   // Extract interest from param or default to 12%
-  const reqInterestText = params.isReal === 'true' ? '12%' : '12%'; 
+  const reqInterestText = params.interest_rate ? `${params.interest_rate}%` : '12%';
+  const reqInterestNum = params.interest_rate ? parseFloat(params.interest_rate) : 12.0;
 
 
 
@@ -871,7 +873,7 @@ export default function VendorDetailScreen() {
         lender_id: user.id,
         vendor_id: vendorId,
         amount: reqAmountNum,
-        interest_rate: 12.0, // Default review rate
+        interest_rate: reqInterestNum,
         tenure: reqTenure,
         status: 'PENDING',
       });

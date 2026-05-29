@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   StyleSheet,
   View,
@@ -16,7 +16,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/hooks/use-theme';
 import { BottomTabInset, Spacing } from '@/constants/theme';
 import { SymbolView } from '@/components/symbol-view';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import Toast from 'react-native-toast-message';
 import { useAuth } from '@/context/auth';
 import { supabase } from '@/lib/supabase';
@@ -381,6 +381,17 @@ function LenderBrowseScreen() {
     };
   }, [user]);
 
+  useFocusEffect(
+    useCallback(() => {
+      if (!user) return;
+      const fetchOffers = async () => {
+        const { data } = await supabase.from('loan_offers').select('*').eq('lender_id', user.id);
+        if (data) setLoanOffers(data);
+      };
+      fetchOffers();
+    }, [user])
+  );
+
   const handleToggleWatchlist = async (oppId: string) => {
     if (!user) return;
     const isSaved = watchlists.includes(oppId);
@@ -420,7 +431,7 @@ function LenderBrowseScreen() {
     if (error) {
       showToast('Submission Failed. Unable to send offer.', 'error');
     } else {
-      setLoanOffers(prev => [...prev, selectedRequestForOffer.id]);
+      setLoanOffers(prev => [...prev, { vendor_id: selectedRequestForOffer.id, created_at: new Date().toISOString() }]);
       showToast('Offer Submitted. Pending vendor review.', 'success');
       setIsOfferModalVisible(false);
     }
@@ -489,7 +500,8 @@ function LenderBrowseScreen() {
               tenure: opp.tenure,
               note: opp.note,
               category: opp.category,
-              location: opp.location
+              location: opp.location,
+              interest_rate: opp.isRealRequest ? opp.realRequest?.interest_rate?.toString() : '12'
             }
           });
         }}
