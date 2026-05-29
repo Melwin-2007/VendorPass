@@ -76,6 +76,30 @@ create trigger on_auth_user_created
   after insert on auth.users
   for each row execute procedure public.handle_new_user();
 
+-- 7b. Secure profiles update trigger (Privilege Escalation Protection)
+create or replace function public.protect_sensitive_profile_fields()
+returns trigger
+language plpgsql
+security definer
+as $$
+begin
+  if (new.role <> old.role or new.score <> old.score or new.trust_score_data <> old.trust_score_data) then
+    -- Allow only service_role to modify role, score, and trust_score_data
+    if auth.role() <> 'service_role' then
+      raise exception 'Unauthorized modification of sensitive fields (role, score, trust_score_data)';
+    end if;
+  end if;
+  return new;
+end;
+$$;
+
+revoke execute on function public.protect_sensitive_profile_fields() from public, anon, authenticated;
+
+drop trigger if exists enforce_profile_security on public.profiles;
+create trigger enforce_profile_security
+  before update on public.profiles
+  for each row execute procedure public.protect_sensitive_profile_fields();
+
 -- 8. Initialize Storage Buckets and Policies for User Documents
 -- Create the documents bucket if it does not exist
 insert into storage.buckets (id, name, public)
@@ -83,19 +107,28 @@ values ('documents', 'documents', true)
 on conflict (id) do nothing;
 
 -- Set up policies for the documents bucket
--- Allow public uploads (insert) to documents bucket
-create policy "Allow public uploads to documents"
+-- Allow authenticated uploads to own folder
+create policy "Allow authenticated uploads to own folder"
 on storage.objects
 for insert
-to public
-with check (bucket_id = 'documents');
+to authenticated
+with check (
+  bucket_id = 'documents'
+  and (storage.foldername(name))[1] = auth.uid()::text
+);
 
--- Allow public read (select) from documents bucket
-create policy "Allow public read from documents"
+-- Allow authenticated users to read documents (only their own, or all if Lender/Bank)
+create policy "Allow authenticated read of documents"
 on storage.objects
 for select
-to public
-using (bucket_id = 'documents');
+to authenticated
+using (
+  bucket_id = 'documents'
+  and (
+    (storage.foldername(name))[1] = auth.uid()::text
+    or (select raw_user_meta_data->>'role' from auth.users where id = auth.uid()) in ('LENDER', 'BANK')
+  )
+);
 
 -- 9. Create Wallet Transactions Table
 create table public.wallet_transactions (

@@ -190,7 +190,25 @@ npm start
 ### 10. Demo Data Removal & Real Data Integrity
 * **Stripped Simulated Fallbacks**: Completely removed all placeholder/fallback data (e.g., "Arjun Singh", synthetic transaction generation, simulated active loans) across the Lender Dashboard (`index.tsx`), Portfolio screen (`portfolio.tsx`), and Vendor Details (`vendor-detail.tsx`). The UI now strictly relies on real Supabase data and gracefully displays empty states (e.g. "No active loans found").
 * **Public Request Fulfillment Lifecycle**: 
-  * Configured `handleApproveCredit` to automatically update a vendor's `public_loan_requests` status to `FULFILLED` the moment a lender accepts an offer. This correctly removes completed requests from the global "Top Opportunities" feed.
-  * Added bulletproof client-side filtering in `explore.tsx` to automatically hide obsolete broadcast requests if the lender has already submitted a counter-proposal on or after the request's creation date, handling any legacy bad data.
-  * Ensured portfolio metrics dynamically sum up the live `loans` array instead of using arbitrary fallback values.
+    * Configured `handleApproveCredit` to automatically update a vendor's `public_loan_requests` status to `FULFILLED` the moment a lender accepts an offer. This correctly removes completed requests from the global "Top Opportunities" feed.
+    * Added bulletproof client-side filtering in `explore.tsx` to automatically hide obsolete broadcast requests if the lender has already submitted a counter-proposal on or after the request's creation date, handling any legacy bad data.
+    * Ensured portfolio metrics dynamically sum up the live `loans` array instead of using arbitrary fallback values.
 
+### 11. Standalone Bank Dashboard Demo Screen
+* **Hackathon Demo Experience**: Developed a standalone `BankDashboard.tsx` component loaded with hardcoded metrics (Axis Institutional Desk) to serve as a visual-first demo experience.
+* **Tab Screen Bypass**: Configured `DashboardScreen` in `index.tsx` to render the new dashboard directly for the `BANK` role, bypassing nested ScrollViews and native headers to allow fully custom layouts.
+* **Fluid Motion & Visuals**:
+    * Added numerical count-up on mount for macro metrics (syndicated capital, yields) using `Animated.timing`.
+    * Constructed staggered entry animations (fade and translateY slide-up) and staggered score progress bar fills for opportunity cards.
+    * Implemented touch/scale micro-interactions on quick action pills, CTA options, and deploy buttons.
+* **Deploy Capital Sheet**: Added a sliding bottom-sheet `Modal` utilizing `KeyboardAvoidingView` to prevent viewport obscuring on Android, featuring a live yield projection calculator and tenure filters.
+* **Monospace Watermark**: Designed a background API teaser card with an opacity-layered overlay of a monospace developer key.
+* **Local Sign Out**: Integrated the `useAuth` hook and added a dedicated sign-out action button at the bottom of the scroll container.
+
+### 12. Supabase Privilege Escalation & Storage Hardening
+* **Sensitive Fields Protection Trigger**: Added a `BEFORE UPDATE` trigger function `protect_sensitive_profile_fields()` on `public.profiles`. The database now rejects any client-side queries attempting to update `role`, `score`, or `trust_score_data` unless the execution context matches the `service_role`.
+* **Storage Access Control Policies**: Overhauled RLS rules for the `documents` storage bucket:
+    * Revoked public anonymous insert and select permissions.
+    * Restricted upload capability only to authenticated users folder-scoped to their own user UID.
+    * Configured read access to permit file selection only by the document owner or verified institutional role profiles (`LENDER` / `BANK`).
+* **Schema & Setup Sync**: Synchronized [supabase_setup.sql](file:///c:/Users/HP/Desktop/VendorPass/supabase_setup.sql) with the updated RLS and trigger settings, and verified clean local execution.
