@@ -4,7 +4,7 @@ import { router } from 'expo-router';
 import { SymbolView } from '@/components/symbol-view';
 
 type BottomTabBarProps = {
-  activeTab: 'home' | 'wallet' | 'history' | 'account';
+  activeTab: 'home' | 'wallet' | 'history' | 'account' | 'chat';
   userRole?: string | null;
   onHomePress?: () => void;
   onWalletPress?: () => void;
@@ -74,7 +74,7 @@ export function BottomTabBar({
         <Text style={activeTab === 'history' ? styles.activeTabText : styles.inactiveTabText}>History</Text>
       </Pressable>
 
-      <Pressable style={styles.tabItem} onPress={onChatPress || (() => router.push('/chat'))}>
+      <Pressable style={styles.tabItem} onPress={onChatPress || (() => router.push('/chat' as any))}>
         {activeTab === 'chat' ? (
           <View style={styles.activeTabCircle}>
             <SymbolView tintColor="#ffffff" name="chat_bubble" size={22} />
@@ -135,7 +135,7 @@ export function LenderBottomTabBar({ activeTab }: { activeTab?: 'home' | 'portfo
         <Text style={activeTab === 'repayments' ? styles.activeTabText : styles.inactiveTabText}>Repayments</Text>
       </Pressable>
 
-      <Pressable style={styles.tabItem} onPress={() => router.push('/chat')}>
+      <Pressable style={styles.tabItem} onPress={() => router.push('/chat' as any)}>
         {activeTab === 'chat' ? (
           <View style={styles.activeTabCircle}>
             <SymbolView tintColor="#ffffff" name="chat_bubble" size={22} />

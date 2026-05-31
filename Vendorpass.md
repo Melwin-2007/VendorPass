@@ -40,6 +40,9 @@ The project utilizes a Supabase database instance with the following schemas and
 1.  **`public.profiles`**: Synchronizes auth signups with user metadata (`name`, `role`, `selfie`, `business_photo`, `score`).
 2.  **`public.wallet_transactions`**: Stores transaction ledgers (`amount`, `type` check `'ADD' | 'SEND'`, `description`).
 3.  **`calculate_trust_score` (Edge Function)**: Triggered dynamically on database transaction updates to compute and update the merchant's trust score in real-time.
+4.  **`public.chats`**: Stores 1-to-1 conversation sessions between lenders and vendors.
+5.  **`public.messages`**: Stores message history, unread markers, and action card attributes.
+6.  **`public.chat_flags`**: Manages flag status, reasons, and timeline logs for escalations.
 
 ---
 
@@ -66,6 +69,10 @@ src/
 │   │   ├── _layout.tsx     # Tab configuration wrapper
 │   │   ├── index.tsx       # Dynamic Dashboard (Lender vs Vendor View)
 │   │   └── explore.tsx     # Lender Search & Browse / Vendor Credit Hub
+│   ├── chat/               # Chat Flow group
+│   │   ├── index.tsx       # Screen 1 — Chat Inbox (Filter chips, SwipeableRow)
+│   │   ├── [id].tsx        # Screen 2 — Conversation View (Action Cards)
+│   │   └── flagged.tsx     # Screen 3 — Flagged / Escalation View
 │   ├── _layout.tsx         # Root container & Context Provider mapping
 │   └── index.tsx           # Entry Splash Screen & scaling Splash Mandala Logo
 ├── components/             # Reusable UI components & custom theme layouts
@@ -80,135 +87,59 @@ src/
 
 ### 1. Signup & Verification Flow
 *   Bypasses the mock OTP verification screen, registering the profile directly in Supabase on form submit.
-*   Form collects real picker camera uploads for selfies and business docs (resolving local image blob colons path upload 400 error by extracting correct mime types and extensions from assets metadata).
-*   Features verify password matching validation fields.
+*   Form collects real picker camera uploads for selfies and business docs.
 
 ### 2. Lender Dashboard Redesign (`(tabs)/index.tsx`)
-*   **Top Bar**: Fixed header displaying profile portrait, "VERIFIED" badge, greeting "Welcome Back, [user.name] 👋", notification bell, and settings gear.
-*   **Hero Portfolio Card**: Gradient panel (`#1A3A4A` -> `#0A1A24`) showing TOTAL CAPITAL DEPLOYED (₹4,85,000), Active Loans (12), Avg Return (18.4%), repayments (94%), and Sparkline trend bar graph.
-*   **Quick Actions Grid**: Row of 4 modules: Browse Vendors (routes to search), New Loan, Portfolio, and At-Risk.
-*   **Applicants Queue**: Renders live vendor profiles loaded from Supabase. Clicking Decline/Approve filters them out from the lender's active attention queue.
-*   **Active Feed**: Displays active loan records (Krishna General Store, S.K. Logistics, Anita Boutique) showing installments progress bars, next EMI dates, status tags, and "At-Risk" alerts.
+*   **Hero Portfolio Card**: Gradient panel (`#1A3A4A` -> `#0A1A24`) showing total deployed capital, active counts, avg returns, and sparklines.
+*   **Applicants Queue**: Swipe queue supporting live Decline/Approve actions.
 
 ### 3. Lender Search/Browse Redesign (`(tabs)/explore.tsx`)
-*   **Role-Based Wrapper**: Displays Lender Search & Browse for Lenders, and the personalized loan offers for Vendors.
-*   **Top Header & Search Bar**: Live query input search bar filtering names, categories, or locations in real-time.
-*   **Filter Pills**: Scrollable pills ("Near Me", "High Score", "Micro-Retail") that dynamically filter the active opportunities list.
-*   **Metric Cards**: Verified Today ("128+") and Total Volume ("₹4.2M") with checkmark shield and trend line SVG watermarks in the background.
-*   **Opportunities Feed**: Merged listing of vendor profiles loaded from Supabase and high-fidelity mockup opportunities (Priya's Organic Mart, Artisan Ceramics, TechFix Solutions).
-*   **FAB**: Rounded floating map FAB button in the bottom right corner.
+*   Live query searches combined with filter pills and metric cards in a responsive layout.
+
+### 4. Real-Time Chat & Escalation Suite (`src/app/chat`)
+*   **Inbox Screen (`index.tsx`)**: Shows unread count indicators with a 4s pulse, active-today indicators with a glow opacity cycle, filter chips (*All*, *Unread*, *Flagged*, *Overdue*), a 300ms easing search slider, and custom `PanResponder` rows for Flag/Archive (swipe-left) and Mark Read (swipe-right).
+*   **Conversation Screen (`[id].tsx`)**: Dynamic header displaying appropriate badges based on user role (TrustScore ★ or Verified Lender badge). Implements standard spring-animated message bubbles and **6 Specialized Action Cards**:
+    *   *Loan Approved card*: teal gradient, linking to active repayments.
+    *   *EMI Reminder card*: amber background, with working "Mark Received" triggers updating repayment details and adding wallet history.
+    *   *Payment Received card*: green background, with updated percentage progress bar indicators.
+    *   *Overdue Alert card*: red background, providing manual reminders and quick escalation.
+    *   *Counter Offer card*: gold border, side-by-side terms displaying Accept/Decline triggers.
+    *   *Loan Application card*: left-border accented, presenting vendor statistics and a link to review application profile details.
+*   **Escalation Screen (`flagged.tsx`)**: Red warning banner, reason selectors, and history log timeline showing changes in flag state.
 
 ---
 
 ## 🛠️ Local Setup & Development Guide
 
-Follow these steps to configure and run VendorPass on your local machine:
-
 ### 1. Install Dependencies
-Ensure you have Node.js installed, then run:
 ```bash
 npm install
 ```
 
 ### 2. Environment Variables
-Create a `.env` file in the root directory and add your Supabase credentials:
+Create a `.env` file in the root directory:
 ```env
 EXPO_PUBLIC_SUPABASE_URL=your_supabase_project_url
 EXPO_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
 ```
 
 ### 3. Database Setup (Supabase)
-Copy the entire contents of `supabase_setup.sql` and run it in your Supabase SQL Editor. 
-*Note: Make sure the `pg_cron` extension is enabled in your Supabase Database settings for the time-based TrustScore logic to work.*
+Apply migrations locally:
+```bash
+npx supabase db reset
+```
 
 ### 4. Run the Development Server
-Start the Expo Metro Bundler:
 ```bash
 npm start
 ```
-* **Web**: Press `w` (or run `npm run web`)
-* **Android**: Press `a` (or run `npm run android`)
-* **Clear Cache**: `npm start -- -c` (useful if you encounter module resolution errors)
-
-### 5. Verification Commands
-*   **TypeScript Validation**: `npx.cmd tsc --noEmit`
-*   **Linter Checks**: `npm run lint`
 
 ---
 
-## 🚀 Recent Updates (TrustScore AI & P2P Integrations)
+## 🚀 Recent Updates
 
-### 1. Global Professional UI Overhaul
-* Replaced fragmented, emoji-based local toasts with the `react-native-toast-message` global provider inside `_layout.tsx`.
-* Upgraded notification copywriting across `index.tsx`, `explore.tsx`, and `history.tsx` to maintain a formal, banking-grade tone.
-
-### 2. Time-Based TrustScore Engine
-* Built `public.process_overdue_loans()` as a **pg_cron** function running every minute to enforce a strict demo lifecycle (1 month = 5 minutes).
-* **Penalty Triggers**:
-  * If a Vendor misses the payment window, they receive a "Friendly Reminder" notification.
-  * If the entire month cycle passes unaddressed, a **Severe Penalty (-50 points)** is executed directly by Postgres, injecting a negative AI Narrative into the user's `trust_score_data` profile.
-
-### 3. P2P Wallet & EMI Math
-* Updated Row-Level Security (RLS) policies on `wallet_transactions` to allow cross-user (Vendor -> Lender) insertions via `check (true)`.
-* Established standardized EMI calculation: `emi = (principal + (principal * interest / 100)) / tenure`.
-* Automated `history.tsx` repayment tracking:
-  * **On-Time Reward**: `+5 points`.
-  * **Late Penalty**: `-10 points`.
-  * **Completion Bonus**: `+15 points`.
-
-### 4. Vendor Dashboard Fixes (`index.tsx`)
-* Activated global Notification Bell with dynamic unread badging.
-* "Apply for Loan" center tab button natively redirects across all screens and auto-triggers the Lenders Modal globally.
-* Added eligibility guardrails to block the "Apply" modal if the vendor currently holds an active (not fully paid off) or pending loan.
-* Limited "Recent Activity" ledger to 5 entries and linked "See All" directly to the Wallet interface.
-* Corrected visual Trend Text to calculate dynamically against the baseline score of `620`.
-
-### 5. TrustScore AI Insights Engine
-* **Dynamic AI Prompts**: Edge Functions (like `calculate_trust_score`) are explicitly instructed to calculate metrics using the `5 real-world minutes = 1 in-app month` rule to avoid falsely penalizing short-time spans as "distressed" financial patterns.
-* **Score History Ledger**: `trust_score_data` Postgres JSONB now tracks a complete `history` array. Both the pg_cron overdue function and the manual repayment methods (`history.tsx`) prepend structured narrative objects (`timestamp`, `score_change`, `type`, `narrative`).
-* **AI Score Insights UI**: 
-  * A new "View AI Score Insights" button on the Vendor Dashboard triggers a dynamic Credit Report Modal.
-  * The modal reads the latest `history` block and dynamically updates the summary card (turning green for recent score bumps, and red for recent drops).
-  * A vertical scrollable timeline renders every narrative chronologically with color-coded impacts.
-
-### 6. Lender Custom Terms & Browse Feed Redesign
-* **Dynamic Browse Pipeline**: Refactored the lender browse screen (`explore.tsx`) to pull live merchant profiles from Supabase and merge them with pending public loan broadcasts (`public_loan_requests`).
-* **Interactive Terms Modal**: Implemented a custom proposal dialog allowing lenders to input customized loan amounts, p.a. interest rates, and month tenures. Submitting inserts a counter-proposal into the `loan_offers` table.
-
-### 7. Vendor Counter-Offer Decisions & Payments Sync
-* **Accept & Decline Routines**: Modified `history.tsx` to handle counter-offers. Renders dynamic green "Accept Offer" and red "Decline" actions next to details indicating proposed interest rates.
-* **Wallet Disbursement Transactions**: Accepting a lender-initiated counter-proposal triggers automated wallet balance transfers, debits the lender's wallet, credits the vendor's wallet, and dispatches push notifications.
-
-### 8. Pending Request Cancellation Flow
-* **Direct Modal Cancellation**: Modified `lenders-modal.tsx` to check for active pending applications. If a vendor clicks the center loan button while a direct or public broadcast request is awaiting review, they are presented with a detailed status screen.
-* **Immediate Deletions**: Vendors can cancel the pending request directly from the modal, instantly removing it from the database (e.g. `loan_offers` or `public_loan_requests`) to make a new proposal.
-
-### 9. Dynamic Profile Animations & Symbol Conversions
-* **Count-Up & Progress Slide-ins**: Added credit score count-up animations (from 300 to current score) and sliding animations for the 6 Scoring Pillars and default probability progress bars, triggering dynamically on active tab changes.
-* **Non-iOS SF Symbols Mapping**: Upgraded `symbol-view.tsx` with translations for new symbols (`arrow.left`, `checkmark.seal.fill`, `info.circle`, `chart.bar`, `exclamationmark.triangle`, `clock`) to display clean Expo vector icons on Android/Web.
-
-### 10. Demo Data Removal & Real Data Integrity
-* **Stripped Simulated Fallbacks**: Completely removed all placeholder/fallback data (e.g., "Arjun Singh", synthetic transaction generation, simulated active loans) across the Lender Dashboard (`index.tsx`), Portfolio screen (`portfolio.tsx`), and Vendor Details (`vendor-detail.tsx`). The UI now strictly relies on real Supabase data and gracefully displays empty states (e.g. "No active loans found").
-* **Public Request Fulfillment Lifecycle**: 
-    * Configured `handleApproveCredit` to automatically update a vendor's `public_loan_requests` status to `FULFILLED` the moment a lender accepts an offer. This correctly removes completed requests from the global "Top Opportunities" feed.
-    * Added bulletproof client-side filtering in `explore.tsx` to automatically hide obsolete broadcast requests if the lender has already submitted a counter-proposal on or after the request's creation date, handling any legacy bad data.
-    * Ensured portfolio metrics dynamically sum up the live `loans` array instead of using arbitrary fallback values.
-
-### 11. Standalone Bank Dashboard Demo Screen
-* **Hackathon Demo Experience**: Developed a standalone `BankDashboard.tsx` component loaded with hardcoded metrics (Axis Institutional Desk) to serve as a visual-first demo experience.
-* **Tab Screen Bypass**: Configured `DashboardScreen` in `index.tsx` to render the new dashboard directly for the `BANK` role, bypassing nested ScrollViews and native headers to allow fully custom layouts.
-* **Fluid Motion & Visuals**:
-    * Added numerical count-up on mount for macro metrics (syndicated capital, yields) using `Animated.timing`.
-    * Constructed staggered entry animations (fade and translateY slide-up) and staggered score progress bar fills for opportunity cards.
-    * Implemented touch/scale micro-interactions on quick action pills, CTA options, and deploy buttons.
-* **Deploy Capital Sheet**: Added a sliding bottom-sheet `Modal` utilizing `KeyboardAvoidingView` to prevent viewport obscuring on Android, featuring a live yield projection calculator and tenure filters.
-* **Monospace Watermark**: Designed a background API teaser card with an opacity-layered overlay of a monospace developer key.
-* **Local Sign Out**: Integrated the `useAuth` hook and added a dedicated sign-out action button at the bottom of the scroll container.
-
-### 12. Supabase Privilege Escalation & Storage Hardening
-* **Sensitive Fields Protection Trigger**: Added a `BEFORE UPDATE` trigger function `protect_sensitive_profile_fields()` on `public.profiles`. The database now rejects any client-side queries attempting to update `role`, `score`, or `trust_score_data` unless the execution context matches the `service_role`.
-* **Storage Access Control Policies**: Overhauled RLS rules for the `documents` storage bucket:
-    * Revoked public anonymous insert and select permissions.
-    * Restricted upload capability only to authenticated users folder-scoped to their own user UID.
-    * Configured read access to permit file selection only by the document owner or verified institutional role profiles (`LENDER` / `BANK`).
-* **Schema & Setup Sync**: Synchronized [supabase_setup.sql](file:///c:/Users/HP/Desktop/VendorPass/supabase_setup.sql) with the updated RLS and trigger settings, and verified clean local execution.
+### 1. Real-Time Chat Engine
+* **DB Schema Sync**: Migrations set up `chats`, `messages`, and `chat_flags` with RLS policies and realtime enabled.
+* **Hybrid Trigger sync**: Trigger functions automatically dispatch chat action cards in response to changes on the `loan_offers` table.
+* **Unique Channel Caching Fix**: Appended dynamic user ID + random + timestamp values to `supabase.channel()` name parameters to prevent React remounts fetching cached already-subscribed channels.
+* **BottomTabBar standard**: Wired up the bottom navigation bars to direct vendors and lenders to `/chat` using type assertions.

@@ -1,0 +1,384 @@
+-- 1. Create the profiles table
+create table public.profiles (
+  id uuid references auth.users on delete cascade primary key,
+  name text,
+  username text unique,
+  email text,
+  phone text,
+  role text check (role in ('VENDOR', 'LENDER', 'BANK')),
+  selfie text,
+  business_photo text,
+  score integer default 0,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null,
+  updated_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+-- 2. Expose the table to the Data API
+grant usage on schema public to anon, authenticated;
+grant all on table public.profiles to anon, authenticated;
+
+-- 3. Enable Row Level Security (RLS)
+alter table public.profiles enable row level security;
+
+-- 4. Create RLS Policies
+create policy "Allow users to read their own profile"
+on public.profiles
+for select
+to authenticated
+using ( (select auth.uid()) = id );
+
+create policy "Allow users to update their own profile"
+on public.profiles
+for update
+to authenticated
+using ( (select auth.uid()) = id )
+with check ( (select auth.uid()) = id );
+
+create policy "Allow lenders and banks to read all profiles"
+on public.profiles
+for select
+to authenticated
+using (
+  coalesce(auth.jwt() -> 'user_metadata' ->> 'role', '') in ('LENDER', 'BANK')
+);
+
+-- 5. Create Trigger function to sync new auth signups to profiles
+create or replace function public.handle_new_user()
+returns trigger
+language plpgsql
+security definer set search_path = public
+as $$
+begin
+  insert into public.profiles (id, name, username, email, phone, role, selfie, business_photo, score)
+  values (
+    new.id,
+    coalesce(new.raw_user_meta_data->>'name', ''),
+    coalesce(new.raw_user_meta_data->>'username', ''),
+    new.email,
+    coalesce(new.raw_user_meta_data->>'phone', ''),
+    coalesce(new.raw_user_meta_data->>'role', 'VENDOR'),
+    new.raw_user_meta_data->>'selfie',
+    new.raw_user_meta_data->>'businessPhoto',
+    coalesce((new.raw_user_meta_data->>'score')::integer, 620)
+  );
+  return new;
+end;
+$$;
+
+-- 6. Secure trigger function
+revoke execute on function public.handle_new_user() from public, anon, authenticated;
+
+-- 7. Create the trigger
+create trigger on_auth_user_created
+  after insert on auth.users
+  for each row execute procedure public.handle_new_user();
+
+-- 7b. Secure profiles update trigger
+create or replace function public.protect_sensitive_profile_fields()
+returns trigger
+language plpgsql
+security definer
+as $$
+begin
+  if (new.role <> old.role or new.score <> old.score or new.trust_score_data <> old.trust_score_data) then
+    if auth.role() <> 'service_role' then
+      raise exception 'Unauthorized modification of sensitive fields (role, score, trust_score_data)';
+    end if;
+  end if;
+  return new;
+end;
+$$;
+
+revoke execute on function public.protect_sensitive_profile_fields() from public, anon, authenticated;
+
+drop trigger if exists enforce_profile_security on public.profiles;
+create trigger enforce_profile_security
+  before update on public.profiles
+  for each row execute procedure public.protect_sensitive_profile_fields();
+
+-- 8. Initialize Storage Buckets and Policies for User Documents
+insert into storage.buckets (id, name, public)
+values ('documents', 'documents', true)
+on conflict (id) do nothing;
+
+create policy "Allow authenticated uploads to own folder"
+on storage.objects
+for insert
+to authenticated
+with check (
+  bucket_id = 'documents'
+  and (storage.foldername(name))[1] = auth.uid()::text
+);
+
+create policy "Allow authenticated read of documents"
+on storage.objects
+for select
+to authenticated
+using (
+  bucket_id = 'documents'
+  and (
+    (storage.foldername(name))[1] = auth.uid()::text
+    or coalesce(auth.jwt() -> 'user_metadata' ->> 'role', '') in ('LENDER', 'BANK')
+  )
+);
+
+-- 9. Create Wallet Transactions Table
+create table public.wallet_transactions (
+  id uuid default gen_random_uuid() primary key,
+  user_id uuid references public.profiles(id) on delete cascade not null,
+  amount numeric not null,
+  type text check (type in ('ADD', 'SEND')) not null,
+  description text,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+grant all on table public.wallet_transactions to anon, authenticated;
+alter table public.wallet_transactions enable row level security;
+
+create policy "Allow users to read their own wallet transactions"
+on public.wallet_transactions for select to authenticated
+using ((select auth.uid()) = user_id);
+
+create policy "Allow users to insert their own wallet transactions"
+on public.wallet_transactions for insert to authenticated
+with check (true);
+
+-- 10. Add trust_score_data to profiles
+alter table public.profiles add column if not exists trust_score_data jsonb;
+
+-- 10b. Create app settings table
+create table if not exists public.app_settings (
+  key text primary key,
+  value text not null
+);
+
+alter table public.app_settings enable row level security;
+grant all on table public.app_settings to postgres, service_role;
+
+-- 11. Create Webhook for TrustScore Engine
+create or replace function public.invoke_trust_score_calculation()
+returns trigger
+language plpgsql
+security definer
+as $$
+declare
+  endpoint_url text;
+  auth_key text;
+begin
+  select value into endpoint_url from public.app_settings where key = 'edge_function_url';
+  select value into auth_key from public.app_settings where key = 'edge_function_key';
+
+  if endpoint_url is null then
+    endpoint_url := 'https://zzbpemhcccwmdlikztse.supabase.co/functions/v1';
+  end if;
+  if auth_key is null then
+    auth_key := 'sb_publishable_-MUUmRMH1bxHgloAEQoiyQ_LPEuVSpI';
+  end if;
+
+  perform net.http_post(
+    url := endpoint_url || '/calculate_trust_score',
+    headers := jsonb_build_object(
+      'Content-Type', 'application/json',
+      'apikey', auth_key,
+      'Authorization', 'Bearer ' || auth_key
+    ),
+    body := jsonb_build_object('record', row_to_json(new))
+  );
+  return new;
+end;
+$$;
+
+drop trigger if exists on_wallet_transaction on public.wallet_transactions;
+create trigger on_wallet_transaction
+  after insert on public.wallet_transactions
+  for each row execute procedure public.invoke_trust_score_calculation();
+
+-- 12. Add funding_status to profiles for realtime tracking
+alter table public.profiles add column if not exists funding_status text default 'LOOKING_FOR_FUNDS' check (funding_status in ('LOOKING_FOR_FUNDS', 'FUNDED'));
+
+-- 13. Create watchlists table for Lenders
+create table public.watchlists (
+  id uuid default gen_random_uuid() primary key,
+  lender_id uuid references public.profiles(id) on delete cascade not null,
+  vendor_id uuid references public.profiles(id) on delete cascade not null,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null,
+  unique(lender_id, vendor_id)
+);
+
+grant all on table public.watchlists to anon, authenticated;
+alter table public.watchlists enable row level security;
+
+create policy "Allow lenders to manage their watchlists"
+on public.watchlists for all to authenticated
+using ((select auth.uid()) = lender_id)
+with check ((select auth.uid()) = lender_id);
+
+-- 14. Create loan_offers table
+create table public.loan_offers (
+  id uuid default gen_random_uuid() primary key,
+  lender_id uuid references public.profiles(id) on delete cascade not null,
+  vendor_id uuid references public.profiles(id) on delete cascade not null,
+  amount numeric not null,
+  interest_rate numeric not null,
+  tenure text not null,
+  status text default 'PENDING' check (status in ('PENDING', 'ACCEPTED', 'DECLINED')) not null,
+  created_by text check (created_by in ('VENDOR', 'LENDER')) default 'LENDER',
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null,
+  accepted_at timestamp with time zone,
+  amount_paid numeric default 0,
+  last_notified_month integer default 0,
+  last_penalized_month integer default 0
+);
+
+grant all on table public.loan_offers to anon, authenticated;
+alter table public.loan_offers enable row level security;
+
+create policy "Allow lenders to manage their loan offers"
+on public.loan_offers for all to authenticated
+using ((select auth.uid()) = lender_id)
+with check ((select auth.uid()) = lender_id);
+
+create policy "Allow vendors to view their received loan offers"
+on public.loan_offers for select to authenticated
+using ((select auth.uid()) = vendor_id);
+
+-- 15. Enable Realtime on tables
+drop publication if exists supabase_realtime cascade;
+create publication supabase_realtime;
+alter publication supabase_realtime add table public.profiles;
+alter publication supabase_realtime add table public.loan_offers;
+
+-- 16. Notifications Table
+create table public.notifications (
+  id uuid default gen_random_uuid() primary key,
+  user_id uuid references public.profiles(id) on delete cascade not null,
+  title text not null,
+  message text not null,
+  is_read boolean default false not null,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+grant all on table public.notifications to anon, authenticated;
+alter table public.notifications enable row level security;
+
+create policy "Users can view own notifications"
+on public.notifications for select to authenticated
+using ((select auth.uid()) = user_id);
+
+create policy "Users can update own notifications"
+on public.notifications for update to authenticated
+using ((select auth.uid()) = user_id)
+with check ((select auth.uid()) = user_id);
+
+create policy "Allow users to insert notifications"
+on public.notifications for insert to authenticated
+with check (true);
+
+alter publication supabase_realtime add table public.notifications;
+
+-- 18. Process Overdue Loans Cron Function
+create extension if not exists pg_cron;
+
+create or replace function public.process_overdue_loans()
+returns void
+language plpgsql
+security definer
+as $$
+declare
+  offer record;
+  elapsed_demo_months integer;
+  paid_months integer;
+  emi_amount numeric;
+  total_loan numeric;
+  tenure_months integer;
+begin
+  for offer in 
+    select * from public.loan_offers 
+    where status = 'ACCEPTED' and accepted_at is not null
+  loop
+    tenure_months := cast(nullif(regexp_replace(offer.tenure, '\D', '', 'g'), '') as integer);
+    if tenure_months is null or tenure_months = 0 then
+      tenure_months := 1;
+    end if;
+
+    total_loan := offer.amount + (offer.amount * (offer.interest_rate / 100.0));
+    emi_amount := total_loan / tenure_months;
+
+    elapsed_demo_months := floor(extract(epoch from (now() - offer.accepted_at)) / 300);
+    paid_months := floor(coalesce(offer.amount_paid, 0) / emi_amount);
+
+    if coalesce(offer.amount_paid, 0) < total_loan then
+      if elapsed_demo_months > paid_months + 1 and elapsed_demo_months > coalesce(offer.last_penalized_month, 0) then
+        update public.profiles 
+        set score = greatest(0, coalesce(score, 620) - 50),
+            trust_score_data = jsonb_set(
+              jsonb_set(
+                coalesce(trust_score_data, '{}'::jsonb),
+                '{trust_score}',
+                to_jsonb(greatest(0, coalesce(score, 620) - 50))
+              ),
+              '{history}',
+              jsonb_build_array(
+                jsonb_build_object(
+                  'timestamp', now(),
+                  'score_change', -50,
+                  'narrative', 'Critical System Alert: Vendor completely missed an EMI payment window resulting in a 50 point TrustScore drop and Very High Risk classification.',
+                  'type', 'penalty'
+                )
+              ) || coalesce((trust_score_data->'history'), '[]'::jsonb)
+            ) || jsonb_build_object('last_updated', now())
+        where id = offer.vendor_id;
+
+        insert into public.notifications (user_id, title, message)
+        values (offer.vendor_id, 'CRITICAL ALERT', 'You completely missed your EMI payment window. Your TrustScore dropped by 50 points.');
+
+        update public.loan_offers 
+        set last_penalized_month = elapsed_demo_months
+        where id = offer.id;
+
+      elsif elapsed_demo_months > paid_months and elapsed_demo_months > coalesce(offer.last_notified_month, 0) then
+        insert into public.notifications (user_id, title, message)
+        values (offer.vendor_id, 'Friendly Reminder', 'Your EMI is due! Please pay it to avoid TrustScore penalties.');
+
+        update public.loan_offers 
+        set last_notified_month = elapsed_demo_months
+        where id = offer.id;
+      end if;
+    end if;
+  end loop;
+end;
+$$;
+
+-- 19. Create public_loan_requests table
+create table public.public_loan_requests (
+  id uuid default gen_random_uuid() primary key,
+  vendor_id uuid references public.profiles(id) on delete cascade not null,
+  amount numeric not null,
+  interest_rate numeric not null,
+  tenure text not null,
+  reason text not null,
+  status text default 'PENDING' check (status in ('PENDING', 'FUNDED', 'CANCELLED')) not null,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+grant all on table public.public_loan_requests to anon, authenticated;
+alter table public.public_loan_requests enable row level security;
+
+create policy "Allow all authenticated users to read public loan requests"
+on public.public_loan_requests for select to authenticated
+using (true);
+
+create policy "Allow vendors to manage their own public loan requests"
+on public.public_loan_requests for all to authenticated
+using ((select auth.uid()) = vendor_id)
+with check ((select auth.uid()) = vendor_id);
+
+alter publication supabase_realtime add table public.public_loan_requests;
+
+-- 20. Add User Settings Preferences
+alter table public.profiles add column if not exists pref_loan_alerts boolean default true;
+alter table public.profiles add column if not exists pref_emi_reminders boolean default true;
+alter table public.profiles add column if not exists pref_overdue_alerts boolean default true;
+alter table public.profiles add column if not exists pref_chat_notifs boolean default true;
+alter table public.profiles add column if not exists pref_weekly_report boolean default false;
+alter table public.profiles add column if not exists pref_biometric boolean default true;

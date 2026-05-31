@@ -32,6 +32,11 @@ A single unified application that radically alters its UI/UX based on the authen
 - **🏪 For Vendors:** A dashboard focusing on TrustScore building, credit limit tracking, loan applications, and wallet ledger management.
 - **🏦 For Lenders:** A sophisticated portfolio management suite showing total capital deployed, active loan feeds, and a Tinder-style swipe queue for pending vendor loan approvals.
 
+### 💬 Real-Time Chat & Escalation Suite
+- **Interactive Action Cards:** Specialized embedded rendering for Counter Offers, Loan Approved status, EMI Reminders (with working payment confirmation workflows), Payment Received confirmations, and Overdue Alert cards.
+- **Gestures & Micro-Interactions:** 4s unread badge pulse animations, soft glow pulses for online status, and custom `PanResponder` Swipeable Rows for quick flagging, archiving, or marking read.
+- **Escalation Console:** Manage flagged conversations, select escalation reasons, view audit log histories, and escalate directly to support teams.
+
 ### 🤝 Peer-to-Peer Counter-Offer Negotiations
 - **Custom Terms Proposal:** Lenders can review vendor profiles or public broadcast requests and submit customized counter-offers (specifying amount, rate, and tenure).
 - **Direct Vendor Decisions:** Vendors can accept or decline lender counter-proposals from their History section, which auto-triggers instant P2P wallet disbursements.
@@ -48,7 +53,6 @@ A single unified application that radically alters its UI/UX based on the authen
 - **Real-Time Dashboards:** All lender portfolio metrics, active loans, and public broadcast requests are deeply synchronized with live Supabase data, avoiding any hardcoded fallbacks.
 - **Automated Request Fulfillment:** When a lender funds a broadcast request, it's immediately auto-fulfilled and purged from the global "Top Opportunities" feed to prevent obsolete queues.
 
-
 ### ⏱️ Accelerated "Physics Engine" (Demo Mode)
 For demonstration and testing purposes, VendorPass operates on an accelerated timeline:
 > **5 real-world minutes = 1 in-app financial month**
@@ -61,7 +65,7 @@ Supabase `pg_cron` jobs and Edge Functions rigorously enforce this timeline. If 
 
 * **Frontend:** React Native, Expo Router (v56), TypeScript
 * **Styling:** Custom Vanilla CSS via React Native `StyleSheet` (Saffron Gold & Slate Theme)
-* **Backend & Auth:** Supabase (PostgreSQL, Auth, Edge Functions, pg_cron)
+* **Backend & Auth:** Supabase (PostgreSQL, Auth, Edge Functions, pg_cron, Realtime)
 * **AI Integration:** OpenRouter / Gemini Pro (for transaction parsing & TrustScore narratives)
 
 ---
@@ -83,8 +87,10 @@ EXPO_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
 ```
 
 ### 3. Database Migration
-Copy the contents of `supabase_setup.sql` and execute it in your Supabase SQL Editor.
-*Ensure the `pg_cron` extension is enabled in your database settings to activate the accelerated timeline engine.*
+Run the following CLI command to spin up the local development database and apply migrations:
+```bash
+npx supabase db reset
+```
 
 ### 4. Start the App
 ```bash
