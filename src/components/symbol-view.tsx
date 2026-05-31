@@ -79,6 +79,8 @@ const ICON_MAPPING: Record<string, { set: 'Ionicons' | 'Feather' | 'FontAwesome'
   
   // Redesigned dashboard specific icons
   'notifications': { set: 'Ionicons', name: 'notifications-outline' },
+  'bell.fill': { set: 'Ionicons', name: 'notifications' },
+  'bell.slash': { set: 'Ionicons', name: 'notifications-off-outline' },
   'payments': { set: 'Ionicons', name: 'cash-outline' },
   'analytics': { set: 'Ionicons', name: 'bar-chart-outline' },
   'folder_open': { set: 'Ionicons', name: 'folder-open-outline' },

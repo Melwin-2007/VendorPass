@@ -42,7 +42,7 @@ on public.profiles
 for select
 to authenticated
 using (
-  (select raw_user_meta_data->>'role' from auth.users where id = auth.uid()) in ('LENDER', 'BANK')
+  coalesce(auth.jwt() -> 'user_metadata' ->> 'role', '') in ('LENDER', 'BANK')
 );
 
 -- 5. Create Trigger function to sync new auth signups to profiles
@@ -126,7 +126,7 @@ using (
   bucket_id = 'documents'
   and (
     (storage.foldername(name))[1] = auth.uid()::text
-    or (select raw_user_meta_data->>'role' from auth.users where id = auth.uid()) in ('LENDER', 'BANK')
+    or coalesce(auth.jwt() -> 'user_metadata' ->> 'role', '') in ('LENDER', 'BANK')
   )
 );
 
@@ -157,27 +157,58 @@ with check (true);
 -- 10. Add trust_score_data to profiles
 alter table public.profiles add column if not exists trust_score_data jsonb;
 
+-- 10b. Create app settings table (Safe alternative to ALTER DATABASE settings)
+create table if not exists public.app_settings (
+  key text primary key,
+  value text not null
+);
+
+-- Enable RLS with no policies to secure it from unauthorized public reads
+alter table public.app_settings enable row level security;
+grant all on table public.app_settings to postgres, service_role;
+
 -- 11. Create Webhook for TrustScore Engine
 -- This trigger will call the edge function whenever a new transaction is recorded
+--
+-- IMPORTANT: You MUST insert the edge function URL and Service Role Key into the public.app_settings table:
+--
+-- For Remote Supabase (SQL Editor):
+--   insert into public.app_settings (key, value) values 
+--     ('edge_function_url', 'https://zzbpemhcccwmdlikztse.supabase.co/functions/v1'),
+--     ('edge_function_key', 'YOUR_SUPABASE_SERVICE_ROLE_KEY')
+--   on conflict (key) do update set value = excluded.value;
+--
+-- For Local Supabase (SQL Editor):
+--   insert into public.app_settings (key, value) values 
+--     ('edge_function_url', 'http://kong:8000/functions/v1'),
+--     ('edge_function_key', 'YOUR_SUPABASE_SERVICE_ROLE_KEY')
+--   on conflict (key) do update set value = excluded.value;
+--
 create or replace function public.invoke_trust_score_calculation()
 returns trigger
 language plpgsql
 security definer
 as $$
 declare
-  endpoint_url text := current_setting('app.settings.edge_function_url', true);
-  auth_key text := current_setting('app.settings.edge_function_key', true);
+  endpoint_url text;
+  auth_key text;
 begin
-  -- For local testing or if the variable isn't set, we might need a fallback or just skip
-  -- In production, the URL and Key must be set in the database parameters
+  select value into endpoint_url from public.app_settings where key = 'edge_function_url';
+  select value into auth_key from public.app_settings where key = 'edge_function_key';
+
+  -- Fallbacks if settings are not defined yet
   if endpoint_url is null then
-    return new;
+    endpoint_url := 'https://zzbpemhcccwmdlikztse.supabase.co/functions/v1';
+  end if;
+  if auth_key is null then
+    auth_key := 'sb_publishable_-MUUmRMH1bxHgloAEQoiyQ_LPEuVSpI';
   end if;
 
   perform net.http_post(
     url := endpoint_url || '/calculate_trust_score',
     headers := jsonb_build_object(
       'Content-Type', 'application/json',
+      'apikey', auth_key,
       'Authorization', 'Bearer ' || auth_key
     ),
     body := jsonb_build_object('record', row_to_json(new))
@@ -396,3 +427,10 @@ with check ((select auth.uid()) = vendor_id);
 
 alter publication supabase_realtime add table public.public_loan_requests;
 
+-- 20. Add User Settings Preferences
+alter table public.profiles add column if not exists pref_loan_alerts boolean default true;
+alter table public.profiles add column if not exists pref_emi_reminders boolean default true;
+alter table public.profiles add column if not exists pref_overdue_alerts boolean default true;
+alter table public.profiles add column if not exists pref_chat_notifs boolean default true;
+alter table public.profiles add column if not exists pref_weekly_report boolean default false;
+alter table public.profiles add column if not exists pref_biometric boolean default true;

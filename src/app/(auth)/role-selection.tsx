@@ -154,7 +154,7 @@ export default function RoleSelectionScreen() {
         {/* Illustration / Mood Image */}
         <View style={styles.imageCard}>
           <Image 
-            source={{ uri: 'https://lh3.googleusercontent.com/aida-public/AB6AXuBgWi_KfyTe7kVTSNj0yY0duSr4t09nUDKDOhbALZoLEcyKzwRjpuZkrf0WunuXtfejYYGhKy_JJUQ_JTLS7A59aCFEXd3NZa3dgZb94Ue7VMdgjmJDU4xIlIGyQMvt-ZE3o9aleEuJrOhJgzG-m01_Fu7RzLTkrDMQMRft1vswLVYRCBy9fF3mO0XBMRRMDD_sr9lwwQTVnSqVKQAGMeyowy107hafY_xfrwcCyQiXU0fPw-TSUpzTTT33gJSwvM5bbLAjT6CuG9ic' }}
+            source={{ uri: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?q=80&w=150&auto=format&fit=crop' }}
             style={styles.moodImage}
             resizeMode="cover"
           />

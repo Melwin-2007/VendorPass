@@ -187,7 +187,7 @@ export default function EntryScreen() {
         <style dangerouslySetInnerHTML={{ __html: `
           @import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=Sora:wght@100..800&family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&display=swap');
           .grain-overlay {
-            background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuDDY4u0Z2lIU0RYVNtbRdcxunDiV7m9gn7JLi010qrQsvkk3slVX323Delnhjrcbew_wtCzHvgAmDgho5Fkn1VJM8tewhW36xUiAUpQ7F8Oysntdn2_7zyJIfZzCUBXTRSUDRojtecAo0oJHabRNnlBzjIsMa5pbAHKji4mDgLcnI4Ij2Nfis-CBMaH4OR9KfnYYQEtP_Gy-KY4dzmxXrJ05A4TSIdW05BSg97jQH91qDdDawSz2TatyA_uuyjOMJxbbNdBUHfvdb0g");
+            background-image: url("https://www.transparenttextures.com/patterns/stardust.png");
             opacity: 0.15;
             pointer-events: none;
             position: absolute;
@@ -220,8 +220,8 @@ export default function EntryScreen() {
 
       {/* Grain overlay for native and web */}
       <Image
-        source={{ uri: 'https://lh3.googleusercontent.com/aida-public/AB6AXuDDY4u0Z2lIU0RYVNtbRdcxunDiV7m9gn7JLi010qrQsvkk3slVX323Delnhjrcbew_wtCzHvgAmDgho5Fkn1VJM8tewhW36xUiAUpQ7F8Oysntdn2_7zyJIfZzCUBXTRSUDRojtecAo0oJHabRNnlBzjIsMa5pbAHKji4mDgLcnI4Ij2Nfis-CBMaH4OR9KfnYYQEtP_Gy-KY4dzmxXrJ05A4TSIdW05BSg97jQH91qDdDawSz2TatyA_uuyjOMJxbbNdBUHfvdb0g' }}
-        style={[StyleSheet.absoluteFill, { opacity: 0.05, zIndex: 1 }]}
+        source={{ uri: 'https://www.transparenttextures.com/patterns/stardust.png' }}
+        style={[StyleSheet.absoluteFill, { opacity: 0.15, zIndex: 1 }]}
         resizeMode="repeat"
       />
 

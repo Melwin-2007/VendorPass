@@ -17,6 +17,7 @@ import { useTheme } from '@/hooks/use-theme';
 import { Spacing } from '@/constants/theme';
 import { MaterialIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { supabase } from '@/lib/supabase';
 
 export default function LoginScreen() {
   const { signIn, signUp, loading, selectRole } = useAuth();
@@ -168,52 +169,6 @@ export default function LoginScreen() {
             )}
           </Pressable>
 
-          {/* Divider */}
-          <View style={styles.dividerRow}>
-            <View style={styles.dividerLine} />
-            <Text style={styles.dividerText}>OR CONTINUE WITH</Text>
-            <View style={styles.dividerLine} />
-          </View>
-
-          {/* Google Sign In Button */}
-          <Pressable
-            style={({ pressed }) => [
-              styles.googleButton,
-              {
-                opacity: pressed ? 0.95 : 1.0,
-                transform: [{ scale: pressed ? 0.98 : 1.0 }],
-              },
-            ]}
-            onPress={async () => {
-              const email = 'raju.vendor@vendorpass.ai';
-              const password = 'Password123!';
-              
-              const success = await signIn(email, password);
-              if (success) {
-                router.replace('/(tabs)');
-              } else {
-                selectRole?.('VENDOR');
-                const signupSuccess = await signUp({
-                  name: 'Raju Kirana Store',
-                  username: 'raju_kirana',
-                  email,
-                  phone: '9876543210',
-                  selfie: 'https://lh3.googleusercontent.com/aida-public/AB6AXuBp-aRKkGDKeuwqhPEmq7g1UC6fAJe7VnCjIBkl8xQ_owajzWgfUPWgUMJOIyoiN0LKTUspoZaFUGMsePMDyMvyc8wOY0Ht8h_r-OZXBP_HQCuvHb2y_yMdS0aE_gbQkkTv3Lfk4ygKkKjRhjN_MvU6GCEuVhiMMajr7ZRd8kQ8WKCxD3dRBu_V3DmsoDaRhR4lC0m7DzQz96jcsebEXvsWN9aBxHGSMpo1wqkYa05F8THygZ30zTg55ArV1Ig9JnHR1x12es4h9pO8',
-                  businessPhoto: 'https://images.unsplash.com/photo-1578916171728-46686eac8d58?q=80&w=600',
-                }, password);
-                
-                if (signupSuccess) {
-                  await signIn(email, password);
-                  router.replace('/(tabs)');
-                }
-              }
-            }}>
-            <Image
-              source={{ uri: 'https://lh3.googleusercontent.com/aida-public/AB6AXuBAtjl6tQHt_LLCf3Jcoforjqd0tnFGf4OXKOh7VYK9xerWtsjv3A8vo37w67W96Y5_H0zmaW9YdFK1Chpq6jA64q_lWBLbMhrqvz7uWd2qN2hw8kyF_IiMXbz-9qZJF2rftwrvztwDcp-XOdBhZ8jw33haXA3cHPbgoCnc3Kz5UiTwFpw7XWCGVw0-1uJxyZogRDIBCj27masHXIgu9gY9b2Y_9c7M17CFofpdN5nKyHas0NSoAbgbHQUqQnSJv0IJBpW6LJfMQDSN' }}
-              style={styles.googleIcon}
-            />
-            <Text style={styles.googleButtonText}>Google Sign In</Text>
-          </Pressable>
 
           {/* Footer Link */}
           <View style={styles.footerRow}>

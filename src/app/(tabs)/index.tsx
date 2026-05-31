@@ -222,6 +222,17 @@ export default function DashboardScreen() {
     }
   };
 
+  const handleClearNotifications = async () => {
+    if (!user) return;
+    const { error } = await supabase.from('notifications').delete().eq('user_id', user.id);
+    if (error) {
+      showToast('Failed to clear notifications.', 'error');
+    } else {
+      setNotificationsList([]);
+      showToast('All notifications cleared.', 'success');
+    }
+  };
+
   // Fetch dynamic lender offers for Lender
   useEffect(() => {
     if (user?.role === 'LENDER') {
@@ -482,18 +493,26 @@ export default function DashboardScreen() {
               <Image 
                 alt="Vendor Profile Picture" 
                 style={styles.vendorAvatar} 
-                source={{ uri: user?.selfie || 'https://lh3.googleusercontent.com/aida-public/AB6AXuBp-aRKkGDKeuwqhPEmq7g1UC6fAJe7VnCjIBkl8xQ_owajzWgfUPWgUMJOIyoiN0LKTUspoZaFUGMsePMDyMvyc8wOY0Ht8h_r-OZXBP_HQCuvHb2y_yMdS0aE_gbQkkTv3Lfk4ygKkKjRhjN_MvU6GCEuVhiMMajr7ZRd8kQ8WKCxD3dRBu_V3DmsoDaRhR4lC0m7DzQz96jcsebEXvsWN9aBxHGSMpo1wqkYa05F8THygZ30zTg55ArV1Ig9JnHR1x12es4h9pO8' }} 
+                source={{ uri: user?.selfie || 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?q=80&w=150&auto=format&fit=crop' }} 
               />
             </View>
-            <Text style={styles.vendorWelcomeText}>Good Morning, {user?.name?.split(' ')[0] || 'Raju'} 👋</Text>
+            <Text style={styles.vendorWelcomeText}>Good Morning, {user?.name?.split(' ')[0] || 'User'} 👋</Text>
           </View>
-          <Pressable 
-            onPress={handleOpenNotifications} 
-            style={({ pressed }) => [styles.vendorNotifyBtn, { opacity: pressed ? 0.8 : 1 }]}
-          >
-            <SymbolView tintColor="#895100" name="notifications" size={24} />
-            {unreadCount > 0 && <View style={styles.vendorNotifyBadge} />}
-          </Pressable>
+          <View style={{ flexDirection: 'row', gap: 12 }}>
+            <Pressable 
+              onPress={handleOpenNotifications} 
+              style={({ pressed }) => [styles.vendorNotifyBtn, { opacity: pressed ? 0.8 : 1 }]}
+            >
+              <SymbolView tintColor="#895100" name="notifications" size={24} />
+              {unreadCount > 0 && <View style={styles.vendorNotifyBadge} />}
+            </Pressable>
+            <Pressable 
+              onPress={() => router.push('/vendor-settings')} 
+              style={({ pressed }) => [styles.vendorNotifyBtn, { opacity: pressed ? 0.8 : 1 }]}
+            >
+              <SymbolView tintColor="#895100" name="settings" size={24} />
+            </Pressable>
+          </View>
         </View>
 
         {/* TrustScore™ Hero Card */}
@@ -613,7 +632,7 @@ export default function DashboardScreen() {
             <Image
               alt="Suresh Profile"
               style={styles.lenderNavAvatar}
-              source={{ uri: 'https://lh3.googleusercontent.com/aida-public/AB6AXuA3hLQjdNWbXnIL9iJKiflOBCYQepD67FLny_XMmVvlbMB1INZ9WOVcww8F1O4yV41f5Vj8zm04GtGfxxTE1mAjFWoqtdOF6RTJc0WyDnAWWqPm9jQUcIwNqUL-XnH0TN0cXlwmDsy3EMjKDqBMeYoY6oKSwui1Xnicj61EaQbPSo0gUOifnx5TIcDCQ0GlRoCPmOb67C5r0A6TOnL0GTv_KRoBnCSrvmnb41itPQhebSP-u9C4jgXRvLXXIVMlbFBDWfSqRcqRDSzI' }}
+              source={{ uri: user?.selfie || 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?q=80&w=150&auto=format&fit=crop' }}
             />
             <View style={styles.lenderVerifiedBadge}>
               <Text style={styles.lenderVerifiedText}>VERIFIED</Text>
@@ -633,7 +652,7 @@ export default function DashboardScreen() {
             <View style={styles.lenderNavBadge} />
           </Pressable>
           <Pressable 
-            onPress={() => showToast('Settings. Managing account preferences.', 'info')}
+            onPress={() => router.push('/lender-settings')}
             style={styles.lenderNavIconBtn}
           >
             <SymbolView name="settings" size={24} tintColor="#534435" />
@@ -1225,7 +1244,7 @@ export default function DashboardScreen() {
               <View style={styles.docImageWrapper}>
                 <Image 
                   style={styles.docImageSelfie}
-                  source={{ uri: user?.selfie || 'https://lh3.googleusercontent.com/aida-public/AB6AXuBp-aRKkGDKeuwqhPEmq7g1UC6fAJe7VnCjIBkl8xQ_owajzWgfUPWgUMJOIyoiN0LKTUspoZaFUGMsePMDyMvyc8wOY0Ht8h_r-OZXBP_HQCuvHb2y_yMdS0aE_gbQkkTv3Lfk4ygKkKjRhjN_MvU6GCEuVhiMMajr7ZRd8kQ8WKCxD3dRBu_V3DmsoDaRhR4lC0m7DzQz96jcsebEXvsWN9aBxHGSMpo1wqkYa05F8THygZ30zTg55ArV1Ig9JnHR1x12es4h9pO8' }}
+                  source={{ uri: user?.selfie || 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?q=80&w=150&auto=format&fit=crop' }}
                 />
               </View>
 
@@ -1388,28 +1407,41 @@ export default function DashboardScreen() {
           <View style={styles.modalCardContainer}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitleText}>Notifications Inbox</Text>
-              <Pressable onPress={() => setNotificationsModalVisible(false)} style={styles.modalCloseBtn}>
-                <SymbolView tintColor="#1c1c18" name="xmark" size={20} />
-              </Pressable>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                {notificationsList.length > 0 && (
+                  <Pressable onPress={handleClearNotifications}>
+                    <Text style={{ color: '#D9534F', fontSize: 13, fontWeight: '700' }}>Clear All</Text>
+                  </Pressable>
+                )}
+                <Pressable onPress={() => setNotificationsModalVisible(false)} style={styles.modalCloseBtn}>
+                  <SymbolView tintColor="#1c1c18" name="xmark" size={20} />
+                </Pressable>
+              </View>
             </View>
 
-            <View style={styles.notificationInboxList}>
+            <ScrollView contentContainerStyle={styles.notificationInboxList} style={{ maxHeight: 400 }}>
               {notificationsList.length > 0 ? notificationsList.map(n => (
-                <View key={n.id} style={styles.notificationItemCard}>
-                  <View style={styles.notificationHeaderRow}>
-                    <Text style={styles.notificationItemTitle}>{n.title}</Text>
-                    <Text style={styles.notificationTime}>{new Date(n.created_at).toLocaleDateString()}</Text>
+                <View key={n.id} style={[styles.notificationItemCard, { flexDirection: 'row', alignItems: 'flex-start', gap: 12, paddingVertical: 14 }]}>
+                  <View style={{ backgroundColor: '#F0E5D8', padding: 8, borderRadius: 20 }}>
+                    <SymbolView name="bell.fill" size={18} tintColor="#D98A2C" />
                   </View>
-                  <Text style={styles.notificationBody}>
-                    {n.message}
-                  </Text>
+                  <View style={{ flex: 1 }}>
+                    <View style={styles.notificationHeaderRow}>
+                      <Text style={[styles.notificationItemTitle, { fontSize: 14 }]}>{n.title}</Text>
+                      <Text style={styles.notificationTime}>{new Date(n.created_at).toLocaleDateString()}</Text>
+                    </View>
+                    <Text style={[styles.notificationBody, { marginTop: 4, color: '#6A6258' }]}>
+                      {n.message}
+                    </Text>
+                  </View>
                 </View>
               )) : (
-                <View style={{ padding: 24, alignItems: 'center' }}>
-                  <Text style={{ color: '#8E8E93', fontSize: 14 }}>No notifications yet</Text>
+                <View style={{ padding: 40, alignItems: 'center' }}>
+                  <SymbolView name="bell.slash" size={40} tintColor="#D0C9C0" />
+                  <Text style={{ color: '#8E8E93', fontSize: 15, marginTop: 12, fontWeight: '500' }}>No notifications yet</Text>
                 </View>
               )}
-            </View>
+            </ScrollView>
           </View>
         </View>
       </Modal>
@@ -1435,10 +1467,10 @@ export default function DashboardScreen() {
               <View style={styles.profileDetailHeader}>
                 <Image 
                   style={styles.profileDetailAvatar}
-                  source={{ uri: user?.selfie || 'https://lh3.googleusercontent.com/aida-public/AB6AXuBp-aRKkGDKeuwqhPEmq7g1UC6fAJe7VnCjIBkl8xQ_owajzWgfUPWgUMJOIyoiN0LKTUspoZaFUGMsePMDyMvyc8wOY0Ht8h_r-OZXBP_HQCuvHb2y_yMdS0aE_gbQkkTv3Lfk4ygKkKjRhjN_MvU6GCEuVhiMMajr7ZRd8kQ8WKCxD3dRBu_V3DmsoDaRhR4lC0m7DzQz96jcsebEXvsWN9aBxHGSMpo1wqkYa05F8THygZ30zTg55ArV1Ig9JnHR1x12es4h9pO8' }}
+                  source={{ uri: user?.selfie || 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?q=80&w=150&auto=format&fit=crop' }}
                 />
                 <View>
-                  <Text style={styles.profileDetailName}>{user?.name || 'Raju'}</Text>
+                  <Text style={styles.profileDetailName}>{user?.name || 'User'}</Text>
                   <Text style={styles.profileDetailRole}>{user?.role || 'VENDOR'} Profile</Text>
                 </View>
               </View>

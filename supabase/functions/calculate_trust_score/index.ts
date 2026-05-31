@@ -21,6 +21,7 @@ serve(async (req) => {
     // Get the payload from the webhook
     const payload = await req.json();
     const newTransaction = payload.record;
+    console.log("Edge function calculate_trust_score triggered with payload:", JSON.stringify(newTransaction, null, 2));
 
     if (!newTransaction || !newTransaction.user_id) {
       return new Response(JSON.stringify({ error: 'Invalid payload' }), {
@@ -171,6 +172,8 @@ DO NOT wrap the JSON in markdown code blocks. Return ONLY raw valid JSON.`;
       trustScoreDataRaw = trustScoreDataRaw.replace(/```json\n?/, '').replace(/```\n?$/, '');
     }
 
+    console.log("Successfully fetched AI response:", trustScoreDataRaw);
+
     let parsedTrustScoreData;
     try {
       parsedTrustScoreData = JSON.parse(trustScoreDataRaw);
@@ -188,6 +191,8 @@ DO NOT wrap the JSON in markdown code blocks. Return ONLY raw valid JSON.`;
     const newScore = parsedTrustScoreData.trust_score;
     const scoreDiff = newScore - oldScore;
     
+    console.log("Score update calculation - Old:", oldScore, "New:", newScore, "Difference:", scoreDiff);
+
     let history = [...existingHistory];
     if (scoreDiff !== 0) {
       history.unshift({
@@ -204,6 +209,7 @@ DO NOT wrap the JSON in markdown code blocks. Return ONLY raw valid JSON.`;
     };
 
     // Update the profile with the new trust score data and the score column
+    console.log("Updating profile in database for user:", userId);
     const { error: updateError } = await supabase
       .from('profiles')
       .update({ 
@@ -212,6 +218,7 @@ DO NOT wrap the JSON in markdown code blocks. Return ONLY raw valid JSON.`;
       })
       .eq('id', userId);
 
+    console.log("Database profile update error status:", updateError);
     if (updateError) throw updateError;
 
     return new Response(JSON.stringify({ success: true, parsedTrustScoreData }), {

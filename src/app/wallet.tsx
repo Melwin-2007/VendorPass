@@ -173,7 +173,7 @@ export default function WalletScreen() {
             
             <Pressable style={styles.actionBtn} onPress={() => openModal('SEND')}>
               <View style={[styles.actionIconContainer, { backgroundColor: 'rgba(192, 57, 43, 0.2)' }]}>
-                <SymbolView name="arrow_upward" size={24} tintColor="#E74C3C" />
+                <SymbolView name="arrow.up" size={24} tintColor="#E74C3C" />
               </View>
               <Text style={styles.actionBtnText}>Send</Text>
             </Pressable>

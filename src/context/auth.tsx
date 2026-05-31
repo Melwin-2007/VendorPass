@@ -15,6 +15,12 @@ export interface UserProfile {
   businessPhoto: string | null;
   score: number;
   trustScoreData?: any;
+  pref_loan_alerts: boolean;
+  pref_emi_reminders: boolean;
+  pref_overdue_alerts: boolean;
+  pref_chat_notifs: boolean;
+  pref_weekly_report: boolean;
+  pref_biometric: boolean;
 }
 
 interface AuthContextType {
@@ -53,7 +59,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Initial fetch from profiles table (source of truth)
       const { data: profileData } = await supabase
         .from('profiles')
-        .select('name, username, email, phone, role, selfie, business_photo, score, trust_score_data')
+        .select('name, username, email, phone, role, selfie, business_photo, score, trust_score_data, pref_loan_alerts, pref_emi_reminders, pref_overdue_alerts, pref_chat_notifs, pref_weekly_report, pref_biometric')
         .eq('id', userId)
         .single();
 
@@ -70,6 +76,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         businessPhoto: profileData?.business_photo || metadata?.businessPhoto || null,
         score: profileData?.score ?? metadata?.score ?? (metadata?.role === 'VENDOR' ? 620 : 0),
         trustScoreData: profileData?.trust_score_data,
+        pref_loan_alerts: profileData?.pref_loan_alerts ?? true,
+        pref_emi_reminders: profileData?.pref_emi_reminders ?? true,
+        pref_overdue_alerts: profileData?.pref_overdue_alerts ?? true,
+        pref_chat_notifs: profileData?.pref_chat_notifs ?? true,
+        pref_weekly_report: profileData?.pref_weekly_report ?? false,
+        pref_biometric: profileData?.pref_biometric ?? true,
       }));
       setLoading(false);
 
@@ -86,6 +98,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               score: payload.new.score !== undefined ? payload.new.score : current.score,
               trustScoreData: payload.new.trust_score_data !== undefined ? payload.new.trust_score_data : current.trustScoreData,
               role: (payload.new.role?.toUpperCase() || current.role) as UserRole,
+              pref_loan_alerts: payload.new.pref_loan_alerts ?? current.pref_loan_alerts,
+              pref_emi_reminders: payload.new.pref_emi_reminders ?? current.pref_emi_reminders,
+              pref_overdue_alerts: payload.new.pref_overdue_alerts ?? current.pref_overdue_alerts,
+              pref_chat_notifs: payload.new.pref_chat_notifs ?? current.pref_chat_notifs,
+              pref_weekly_report: payload.new.pref_weekly_report ?? current.pref_weekly_report,
+              pref_biometric: payload.new.pref_biometric ?? current.pref_biometric,
             } : null);
           }
         })

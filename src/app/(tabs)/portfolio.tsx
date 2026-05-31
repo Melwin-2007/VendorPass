@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable, Image, Platform, Dimensions } from 'react-native';
 import { router } from 'expo-router';
 import { SymbolView } from '@/components/symbol-view';
@@ -55,80 +55,105 @@ export default function PortfolioScreen() {
     }
   }, [isReady]);
 
-  const baseTimeVal = (user as any)?.created_at ? new Date((user as any).created_at).getTime() : Date.now() - 30 * 24 * 60 * 60 * 1000;
-  const nowTimeVal = Date.now();
+  const [nowTimeVal] = useState(() => Date.now());
   const dbLoans = loans;
 
-  let totalCapital = 0;
-  let totalRecovered = 0;
-  let totalPending = 0;
-  let totalOverdue = 0;
-  let overdueCasesCount = 0;
-  
-  let secureSum = 0;
-  let stableSum = 0;
-  let neutralSum = 0;
-  let criticalSum = 0;
+  const {
+    processedLoans,
+    totalCapital,
+    totalRecovered,
+    totalPending,
+    totalOverdue,
+    overdueCasesCount,
+    secureSum,
+    stableSum,
+    neutralSum,
+    criticalSum
+  } = useMemo(() => {
+    let cap = 0;
+    let rec = 0;
+    let pen = 0;
+    let ovd = 0;
+    let ovdCount = 0;
+    let sec = 0;
+    let sta = 0;
+    let neu = 0;
+    let crit = 0;
 
-  const processedLoans = dbLoans.map(loan => {
-    const tenureStr = loan.tenure || '6 Months';
-    const tenureMonths = parseInt(tenureStr) || 6;
-    const principal = Number(loan.amount);
-    const interestRate = Number(loan.interest_rate) || 0;
-    const totalPayback = principal * (1 + interestRate / 100);
-    const emiVal = Math.round(totalPayback / tenureMonths);
-    
-    const startDate = new Date(loan.accepted_at || loan.created_at);
-    const diffMs = Math.max(0, nowTimeVal - startDate.getTime());
-    const monthsElapsed = Math.floor(diffMs / (5 * 60 * 1000)); // 5 mins = 1 month
-    
-    // Simulate paid amount for demo
-    let computedPaid = Number(loan.amount_paid) || 0;
-    if (loan.id.startsWith('sim-')) {
-      if (loan.profiles.name === 'Goel Logistics') {
-        computedPaid = emiVal * 4; // 4 months paid, but 12 elapsed -> Overdue
-      } else if (loan.profiles.name === 'Priya\'s Gourmet') {
-        computedPaid = emiVal * 11;
-      } else if (loan.profiles.name === 'Sharma Kirana Store') {
-        computedPaid = emiVal * 18;
-      } else {
-        computedPaid = Math.min(monthsElapsed * emiVal, totalPayback);
+    const list = [];
+    for (const loan of dbLoans) {
+      const tenureStr = loan.tenure || '6 Months';
+      const tenureMonths = parseInt(tenureStr) || 6;
+      const principal = Number(loan.amount);
+      const interestRate = Number(loan.interest_rate) || 0;
+      const totalPayback = principal * (1 + interestRate / 100);
+      const emiVal = Math.round(totalPayback / tenureMonths);
+      
+      const startDate = new Date(loan.accepted_at || loan.created_at);
+      const diffMs = Math.max(0, nowTimeVal - startDate.getTime());
+      const monthsElapsed = Math.floor(diffMs / (5 * 60 * 1000)); // 5 mins = 1 month
+      
+      // Simulate paid amount for demo
+      let computedPaid = Number(loan.amount_paid) || 0;
+      if (loan.id.startsWith('sim-')) {
+        if (loan.profiles.name === 'Goel Logistics') {
+          computedPaid = emiVal * 4; // 4 months paid, but 12 elapsed -> Overdue
+        } else if (loan.profiles.name === 'Priya\'s Gourmet') {
+          computedPaid = emiVal * 11;
+        } else if (loan.profiles.name === 'Sharma Kirana Store') {
+          computedPaid = emiVal * 18;
+        } else {
+          computedPaid = Math.min(monthsElapsed * emiVal, totalPayback);
+        }
       }
+
+      const expectedPaid = Math.min(monthsElapsed * emiVal, totalPayback);
+      const hasGracePeriodExpired = (diffMs % (5 * 60 * 1000)) > (2 * 60 * 1000);
+      const isPaid = computedPaid >= totalPayback;
+      const isOverdue = !isPaid && computedPaid < expectedPaid && hasGracePeriodExpired;
+      
+      cap += principal;
+      rec += computedPaid;
+      pen += (totalPayback - computedPaid);
+
+      if (isOverdue) {
+        ovd += (expectedPaid - computedPaid);
+        ovdCount++;
+      }
+
+      const score = loan.profiles?.score || 600;
+      if (score >= 750) sec += principal;
+      else if (score >= 650) sta += principal;
+      else if (score >= 500) neu += principal;
+      else crit += principal;
+
+      list.push({
+        ...loan,
+        principal,
+        totalPayback,
+        computedPaid,
+        emiVal,
+        tenureMonths,
+        monthsElapsed,
+        isPaid,
+        isOverdue,
+        score
+      });
     }
-
-    const expectedPaid = Math.min(monthsElapsed * emiVal, totalPayback);
-    const hasGracePeriodExpired = (diffMs % (5 * 60 * 1000)) > (2 * 60 * 1000);
-    const isPaid = computedPaid >= totalPayback;
-    const isOverdue = !isPaid && computedPaid < expectedPaid && hasGracePeriodExpired;
-    
-    totalCapital += principal;
-    totalRecovered += computedPaid;
-    totalPending += (totalPayback - computedPaid);
-
-    if (isOverdue) {
-      totalOverdue += (expectedPaid - computedPaid);
-      overdueCasesCount++;
-    }
-
-    const score = loan.profiles?.score || 600;
-    if (score >= 750) secureSum += principal;
-    else if (score >= 650) stableSum += principal;
-    else if (score >= 500) neutralSum += principal;
-    else criticalSum += principal;
 
     return {
-      ...loan,
-      principal,
-      totalPayback,
-      computedPaid,
-      emiVal,
-      tenureMonths,
-      monthsElapsed,
-      isPaid,
-      isOverdue,
-      score
+      processedLoans: list,
+      totalCapital: cap,
+      totalRecovered: rec,
+      totalPending: pen,
+      totalOverdue: ovd,
+      overdueCasesCount: ovdCount,
+      secureSum: sec,
+      stableSum: sta,
+      neutralSum: neu,
+      criticalSum: crit
     };
-  });
+  }, [dbLoans, nowTimeVal]);
 
   const displayList = processedLoans.filter(l => {
     if (activeTab === 'Active') return !l.isPaid && !l.isOverdue;
@@ -146,21 +171,41 @@ export default function PortfolioScreen() {
   const R = 46;
   const CIRCUMFERENCE = 2 * Math.PI * R;
 
-  const createAnimatedProps = (pct: number, offsetPct: number, progressVal: SharedValue<number>) => {
-    return useAnimatedProps(() => {
-      const targetLen = pct * CIRCUMFERENCE;
-      const strokeDashoffset = CIRCUMFERENCE - (targetLen * progressVal.value);
-      return {
-        strokeDasharray: `${CIRCUMFERENCE} ${CIRCUMFERENCE}`,
-        strokeDashoffset,
-      };
-    });
-  };
+  const aProps1 = useAnimatedProps(() => {
+    const targetLen = securePct * CIRCUMFERENCE;
+    const strokeDashoffset = CIRCUMFERENCE - (targetLen * arcProgress1.value);
+    return {
+      strokeDasharray: `${CIRCUMFERENCE} ${CIRCUMFERENCE}`,
+      strokeDashoffset,
+    };
+  });
 
-  const aProps1 = createAnimatedProps(securePct, 0, arcProgress1);
-  const aProps2 = createAnimatedProps(stablePct, securePct, arcProgress2);
-  const aProps3 = createAnimatedProps(neutralPct, securePct + stablePct, arcProgress3);
-  const aProps4 = createAnimatedProps(criticalPct, securePct + stablePct + neutralPct, arcProgress4);
+  const aProps2 = useAnimatedProps(() => {
+    const targetLen = stablePct * CIRCUMFERENCE;
+    const strokeDashoffset = CIRCUMFERENCE - (targetLen * arcProgress2.value);
+    return {
+      strokeDasharray: `${CIRCUMFERENCE} ${CIRCUMFERENCE}`,
+      strokeDashoffset,
+    };
+  });
+
+  const aProps3 = useAnimatedProps(() => {
+    const targetLen = neutralPct * CIRCUMFERENCE;
+    const strokeDashoffset = CIRCUMFERENCE - (targetLen * arcProgress3.value);
+    return {
+      strokeDasharray: `${CIRCUMFERENCE} ${CIRCUMFERENCE}`,
+      strokeDashoffset,
+    };
+  });
+
+  const aProps4 = useAnimatedProps(() => {
+    const targetLen = criticalPct * CIRCUMFERENCE;
+    const strokeDashoffset = CIRCUMFERENCE - (targetLen * arcProgress4.value);
+    return {
+      strokeDasharray: `${CIRCUMFERENCE} ${CIRCUMFERENCE}`,
+      strokeDashoffset,
+    };
+  });
 
   const formatAmountLakhs = (val: number) => {
     if (val >= 100000) {
@@ -237,7 +282,7 @@ export default function PortfolioScreen() {
       <View style={[styles.header, { paddingTop: Math.max(insets.top, 16) }]}>
         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
           <Image 
-            source={{ uri: user?.selfie || 'https://lh3.googleusercontent.com/aida-public/AB6AXuA3hLQjdNWbXnIL9iJKiflOBCYQepD67FLny_XMmVvlbMB1INZ9WOVcww8F1O4yV41f5Vj8zm04GtGfxxTE1mAjFWoqtdOF6RTJc0WyDnAWWqPm9jQUcIwNqUL-XnH0TN0cXlwmDsy3EMjKDqBMeYoY6oKSwui1Xnicj61EaQbPSo0gUOifnx5TIcDCQ0GlRoCPmOb67C5r0A6TOnL0GTv_KRoBnCSrvmnb41itPQhebSP-u9C4jgXRvLXXIVMlbFBDWfSqRcqRDSzI' }} 
+            source={{ uri: user?.selfie || 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?q=80&w=150&auto=format&fit=crop' }} 
             style={styles.headerAvatar} 
           />
           <Text style={styles.headerWordmark}>Vendor<Text style={{ color: '#CC8A00' }}>PASS</Text></Text>
@@ -263,9 +308,9 @@ export default function PortfolioScreen() {
                   
                   {/* Segments */}
                   {securePct > 0 && <AnimatedCircle cx={50} cy={50} r={R} stroke="#CC8A00" strokeWidth={8} fill="none" strokeLinecap="round" animatedProps={aProps1} />}
-                  {stablePct > 0 && <AnimatedCircle cx={50} cy={50} r={R} stroke="#F5A623" strokeWidth={8} fill="none" strokeLinecap="round" animatedProps={aProps2} rotation={(securePct * 360)} originX="50" originY="50" />}
-                  {neutralPct > 0 && <AnimatedCircle cx={50} cy={50} r={R} stroke="#95A5A6" strokeWidth={8} fill="none" strokeLinecap="round" animatedProps={aProps3} rotation={((securePct + stablePct) * 360)} originX="50" originY="50" />}
-                  {criticalPct > 0 && <AnimatedCircle cx={50} cy={50} r={R} stroke="#C0392B" strokeWidth={8} fill="none" strokeLinecap="round" animatedProps={aProps4} rotation={((securePct + stablePct + neutralPct) * 360)} originX="50" originY="50" />}
+                  {stablePct > 0 && <AnimatedCircle cx={50} cy={50} r={R} stroke="#F5A623" strokeWidth={8} fill="none" strokeLinecap="round" animatedProps={aProps2} transform={`rotate(${securePct * 360} 50 50)`} />}
+                  {neutralPct > 0 && <AnimatedCircle cx={50} cy={50} r={R} stroke="#95A5A6" strokeWidth={8} fill="none" strokeLinecap="round" animatedProps={aProps3} transform={`rotate(${(securePct + stablePct) * 360} 50 50)`} />}
+                  {criticalPct > 0 && <AnimatedCircle cx={50} cy={50} r={R} stroke="#C0392B" strokeWidth={8} fill="none" strokeLinecap="round" animatedProps={aProps4} transform={`rotate(${(securePct + stablePct + neutralPct) * 360} 50 50)`} />}
                 </Svg>
                 
                 <View style={styles.donutCenterLabel}>

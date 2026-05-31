@@ -271,56 +271,33 @@ function LenderBrowseScreen() {
         // Find if this vendor has an active public request
         const realReq = publicRequests.find((req: any) => req.vendor_id === profile.id);
 
+        if (!realReq) return null;
+
         const cat = profile.name?.toLowerCase().includes('organic') ? 'Retail'
                   : profile.name?.toLowerCase().includes('ceramics') ? 'Crafts'
                   : profile.name?.toLowerCase().includes('fix') ? 'Services'
                   : 'Retail';
 
-        if (realReq) {
-          return {
-            id: profile.id,
-            name: profile.name,
-            category: cat,
-            location: 'Bengaluru',
-            score: rawScore,
-            amount: `₹${Number(realReq.amount).toLocaleString('en-IN')}`,
-            tenure: realReq.tenure,
-            note: realReq.reason,
-            interest: `${realReq.interest_rate}% p.a. • ${getSimulatedLendersText(rawScore)}`,
-            image: profile.selfie || 'https://lh3.googleusercontent.com/aida-public/AB6AXuAlgj-SJy7IHHN72FxR0ksw9nM_XrQpT4CDw_-cf7XWWW3dGev-D7RrwT5t01Jjh9SC4mPC4V72WbitqBuxaang7oo5_1RNOweXOjkLpUEQiI6VM9qNtBGbdtINFD_1tCcctKfd3S9YQXPcSyZOGjFNvmYK-I3Z1kWnVfeBtMZZfSRlX9Ixyo_i322Hmo4RCrCVfMZUl6pIdFZAF7AUYxALh1sSDJykFkLtVia9Fehqnn39siVkTBQ_F8WeSDNBCMApg9u7YLxNIXlV',
-            avatars: getSimulatedAvatars(rawScore),
-            funding_status: profile.funding_status || 'LOOKING_FOR_FUNDS',
-            isRealRequest: true,
-            realRequest: realReq
-          };
-        } else {
-          const proposedAmt = rawScore >= 750 ? 30000 : rawScore >= 650 ? 50000 : 15000;
-          const tenureVal = rawScore >= 750 ? '6 Months' : rawScore >= 650 ? '12 Months' : '3 Months';
-          
-          return {
-            id: profile.id,
-            name: profile.name,
-            category: cat,
-            location: 'Bengaluru',
-            score: rawScore,
-            amount: `₹${proposedAmt.toLocaleString('en-IN')}`,
-            tenure: tenureVal,
-            note: rawScore >= 750 ? 'inventory expansion for the festive season' : 'spare parts inventory',
-            interest: getSimulatedLendersText(rawScore),
-            image: profile.selfie || 'https://lh3.googleusercontent.com/aida-public/AB6AXuAlgj-SJy7IHHN72FxR0ksw9nM_XrQpT4CDw_-cf7XWWW3dGev-D7RrwT5t01Jjh9SC4mPC4V72WbitqBuxaang7oo5_1RNOweXOjkLpUEQiI6VM9qNtBGbdtINFD_1tCcctKfd3S9YQXPcSyZOGjFNvmYK-I3Z1kWnVfeBtMZZfSRlX9Ixyo_i322Hmo4RCrCVfMZUl6pIdFZAF7AUYxALh1sSDJykFkLtVia9Fehqnn39siVkTBQ_F8WeSDNBCMApg9u7YLxNIXlV',
-            avatars: getSimulatedAvatars(rawScore),
-            funding_status: profile.funding_status || 'LOOKING_FOR_FUNDS',
-            isRealRequest: false
-          };
-        }
-      });
+        return {
+          id: profile.id,
+          name: profile.name,
+          category: cat,
+          location: 'Bengaluru',
+          score: rawScore,
+          amount: `₹${Number(realReq.amount).toLocaleString('en-IN')}`,
+          tenure: realReq.tenure,
+          note: realReq.reason,
+          interest: `${realReq.interest_rate}% p.a. • ${getSimulatedLendersText(rawScore)}`,
+          image: profile.selfie || 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?q=80&w=150&auto=format&fit=crop',
+          avatars: getSimulatedAvatars(rawScore),
+          funding_status: profile.funding_status || 'LOOKING_FOR_FUNDS',
+          isRealRequest: true,
+          realRequest: realReq
+        };
+      }).filter(Boolean) as Opportunity[];
 
-      // Sort real requests first
-      mapped.sort((a, b) => {
-        if (a.isRealRequest && !b.isRealRequest) return -1;
-        if (!a.isRealRequest && b.isRealRequest) return 1;
-        return 0;
-      });
+      // Sort real requests by score
+      mapped.sort((a, b) => b.score - a.score);
 
       setOpportunities(mapped);
     } else {
@@ -565,7 +542,7 @@ function LenderBrowseScreen() {
           <Image
             alt="Suresh Profile"
             style={styles.lenderNavAvatar}
-            source={{ uri: 'https://lh3.googleusercontent.com/aida-public/AB6AXuA3hLQjdNWbXnIL9iJKiflOBCYQepD67FLny_XMmVvlbMB1INZ9WOVcww8F1O4yV41f5Vj8zm04GtGfxxTE1mAjFWoqtdOF6RTJc0WyDnAWWqPm9jQUcIwNqUL-XnH0TN0cXlwmDsy3EMjKDqBMeYoY6oKSwui1Xnicj61EaQbPSo0gUOifnx5TIcDCQ0GlRoCPmOb67C5r0A6TOnL0GTv_KRoBnCSrvmnb41itPQhebSP-u9C4jgXRvLXXIVMlbFBDWfSqRcqRDSzI' }}
+            source={{ uri: user?.selfie || 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?q=80&w=150&auto=format&fit=crop' }}
           />
           <Text style={styles.lenderWordmark}>Vendor<Text style={{ color: '#895100' }}>PASS</Text></Text>
         </View>
@@ -576,6 +553,9 @@ function LenderBrowseScreen() {
           </Pressable>
           <Pressable onPress={() => showToast('Inbox. Viewing messages.', 'info')} style={styles.navIconPressable}>
             <SymbolView name="notifications" size={22} tintColor="#534435" />
+          </Pressable>
+          <Pressable onPress={() => router.push('/lender-settings')} style={styles.navIconPressable}>
+            <SymbolView name="settings" size={22} tintColor="#534435" />
           </Pressable>
         </View>
       </View>
@@ -815,8 +795,8 @@ function BankApiConsoleScreen() {
           <View style={{ backgroundColor: '#1C1C1E', padding: 16, borderRadius: 12 }}>
             <Text style={{ color: '#A0B0BA', fontFamily: Platform.OS === 'web' ? 'JetBrains Mono' : 'monospace', fontSize: 12, lineHeight: 20 }}>
               <Text style={{ color: '#D4820A' }}>curl</Text> -X POST https://api.vendorpass.com/v1/score \
-              {'\n'}  -H <Text style={{ color: '#2D7D46' }}>"Authorization: Bearer sk_live_..."</Text> \
-              {'\n'}  -d <Text style={{ color: '#2D7D46' }}>'{"{"}"vendor_id":"V-00123"{"}"}'</Text>
+              {'\n'}  -H <Text style={{ color: '#2D7D46' }}>{"\"Authorization: Bearer sk_live_...\""}</Text> \
+              {'\n'}  -d <Text style={{ color: '#2D7D46' }}>{"'{\"vendor_id\":\"V-00123\"}'"}</Text>
             </Text>
           </View>
         </View>
@@ -831,7 +811,7 @@ function BankApiConsoleScreen() {
         </Pressable>
       </ScrollView>
 
-      <LenderBottomTabBar activeTab="explore" />
+      <LenderBottomTabBar activeTab="browse" />
     </View>
   );
 }

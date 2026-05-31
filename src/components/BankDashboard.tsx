@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   StyleSheet,
   View,
@@ -64,8 +64,8 @@ export function BankDashboard() {
 
   // Animation state values
   const countAnim = useRef(new Animated.Value(0)).current;
-  const trancheEntrances = useRef(MOCK_TRANCHES.map(() => new Animated.Value(0))).current;
-  const trancheBars = useRef(MOCK_TRANCHES.map(() => new Animated.Value(0))).current;
+  const trancheEntrances = useMemo(() => MOCK_TRANCHES.map(() => new Animated.Value(0)), []);
+  const trancheBars = useMemo(() => MOCK_TRANCHES.map(() => new Animated.Value(0)), []);
 
   // Numerical display values for count-up
   const [displayMetrics, setDisplayMetrics] = useState({

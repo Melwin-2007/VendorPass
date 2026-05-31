@@ -15,8 +15,8 @@ export function LenderPortfolioCard({ portfolioStats, monthlyYields }: LenderPor
   const [selectedMonthIdx, setSelectedMonthIdx] = useState<number | null>(5);
 
   useEffect(() => {
-    if (Platform.OS === 'android' && typeof LayoutAnimation.setLayoutAnimationEnabledExperimental === 'function') {
-      LayoutAnimation.setLayoutAnimationEnabledExperimental(true);
+    if (Platform.OS === 'android' && typeof (LayoutAnimation as any).setLayoutAnimationEnabledExperimental === 'function') {
+      (LayoutAnimation as any).setLayoutAnimationEnabledExperimental(true);
     }
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
   }, []);
