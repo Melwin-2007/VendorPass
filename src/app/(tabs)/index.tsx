@@ -1091,7 +1091,6 @@ export default function DashboardScreen() {
         <BottomTabBar 
           activeTab="home"
           userRole={user?.role}
-          onAccountPress={() => setAccountModalVisible(true)}
         />
       )}
 

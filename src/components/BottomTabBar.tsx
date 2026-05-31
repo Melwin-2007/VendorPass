@@ -10,7 +10,7 @@ type BottomTabBarProps = {
   onWalletPress?: () => void;
   onCenterPress?: () => void;
   onHistoryPress?: () => void;
-  onAccountPress?: () => void;
+  onChatPress?: () => void;
 };
 
 export function BottomTabBar({ 
@@ -20,7 +20,7 @@ export function BottomTabBar({
   onWalletPress,
   onCenterPress,
   onHistoryPress,
-  onAccountPress
+  onChatPress
 }: BottomTabBarProps) {
   
   const defaultHomePress = () => router.push('/(tabs)');
@@ -74,9 +74,15 @@ export function BottomTabBar({
         <Text style={activeTab === 'history' ? styles.activeTabText : styles.inactiveTabText}>History</Text>
       </Pressable>
 
-      <Pressable style={styles.tabItem} onPress={onAccountPress}>
-        <SymbolView tintColor="#8E8E93" name="person" size={22} />
-        <Text style={styles.inactiveTabText}>Account</Text>
+      <Pressable style={styles.tabItem} onPress={onChatPress || (() => router.push('/chat'))}>
+        {activeTab === 'chat' ? (
+          <View style={styles.activeTabCircle}>
+            <SymbolView tintColor="#ffffff" name="chat_bubble" size={22} />
+          </View>
+        ) : (
+          <SymbolView tintColor="#8E8E93" name="chat_bubble" size={22} />
+        )}
+        <Text style={activeTab === 'chat' ? styles.activeTabText : styles.inactiveTabText}>Chat</Text>
       </Pressable>
     </View>
   );
