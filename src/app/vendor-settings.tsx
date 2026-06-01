@@ -6,19 +6,22 @@ import { useAuth } from '@/context/auth';
 import { SymbolView } from '@/components/symbol-view';
 import { supabase } from '@/lib/supabase';
 import Animated, { useAnimatedStyle, withSpring } from 'react-native-reanimated';
+import { useTheme } from '@/hooks/use-theme';
+import { TopAppBar } from '@/components/TopAppBar';
 
 const CustomToggle = ({ value, onValueChange }: { value: boolean, onValueChange: (val: boolean) => void }) => {
+  const theme = useTheme();
   const thumbStyle = useAnimatedStyle(() => {
     return {
       transform: [{ translateX: withSpring(value ? 20 : 2, { damping: 15, stiffness: 120 }) }],
-      backgroundColor: withSpring(value ? '#D4820A' : '#FFFFFF'),
+      backgroundColor: withSpring(value ? theme.colorPrimary : theme.colorSurface),
     };
   });
   
   const trackStyle = useAnimatedStyle(() => {
     return {
-      backgroundColor: withSpring(value ? '#F9F5EF' : '#E8E0D5'),
-      borderColor: withSpring(value ? '#D4820A' : '#E8E0D5'),
+      backgroundColor: withSpring(value ? theme.colorBackground : theme.colorOutline),
+      borderColor: withSpring(value ? theme.colorPrimary : theme.colorOutline),
     };
   });
 
@@ -64,64 +67,60 @@ export default function VendorSettingsScreen() {
     router.replace('/');
   };
 
+  const theme = useTheme();
+
   const SettingRow = ({ icon, label, rightElement, showDivider = true, onPress }: any) => (
     <Pressable 
       style={({ pressed }) => [
         styles.settingRow, 
-        pressed && onPress && { transform: [{ scale: 0.98 }], backgroundColor: '#F0EAD6' }
+        pressed && onPress && { transform: [{ scale: 0.98 }], backgroundColor: theme.backgroundElement }
       ]}
       onPress={onPress}
       disabled={!onPress}
     >
       <View style={styles.settingRowLeft}>
-        <View style={styles.iconBox}>
+        <View style={[styles.iconBox, { backgroundColor: theme.backgroundElement }]}>
           <Text style={{ fontSize: 18 }}>{icon}</Text>
         </View>
-        <Text style={styles.settingLabel}>{label}</Text>
+        <Text style={[styles.settingLabel, { color: theme.colorOnSurface }]}>{label}</Text>
       </View>
       <View style={styles.settingRowRight}>
-        {rightElement || <SymbolView name="chevron.right" size={14} tintColor="#A0A0A0" />}
+        {rightElement || <SymbolView name="chevron.right" size={14} tintColor={theme.textSecondary} />}
       </View>
-      {showDivider && <View style={styles.divider} />}
+      {showDivider && <View style={[styles.divider, { backgroundColor: theme.colorOutline }]} />}
     </Pressable>
   );
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: theme.colorBackground }]}>
       {/* Header */}
-      <View style={styles.header}>
-        <Pressable onPress={() => router.back()} style={styles.backButton}>
-          <SymbolView name="chevron.left" size={24} tintColor="#1A3A4A" />
-        </Pressable>
-        <Text style={styles.headerTitle}>Settings</Text>
-        <View style={styles.backButton} />
-      </View>
+      <TopAppBar title="Settings" showBackButton />
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
         
         {/* Profile Card */}
-        <View style={styles.profileCard}>
+        <View style={[styles.profileCard, { backgroundColor: theme.colorSurface, borderLeftColor: theme.colorPrimary, borderColor: theme.colorOutline, borderWidth: StyleSheet.hairlineWidth }]}>
           <Image 
             source={{ uri: user?.selfie || 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?q=80&w=150&auto=format&fit=crop' }} 
             style={styles.avatar} 
           />
           <View style={styles.profileInfo}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-              <Text style={styles.profileName}>{user?.name || 'Vendor Name'}</Text>
-              <View style={styles.verifiedBadge}>
-                <Text style={styles.verifiedText}>Verified ✓</Text>
+              <Text style={[styles.profileName, { color: theme.colorOnSurface }]}>{user?.name || 'Vendor Name'}</Text>
+              <View style={[styles.verifiedBadge, { backgroundColor: `${theme.success}15` }]}>
+                <Text style={[styles.verifiedText, { color: theme.success }]}>Verified ✓</Text>
               </View>
             </View>
-            <Text style={styles.profileEmail}>{user?.email}</Text>
+            <Text style={[styles.profileEmail, { color: theme.textSecondary }]}>{user?.email}</Text>
           </View>
           <Pressable>
-            <Text style={styles.editProfileText}>Edit Profile →</Text>
+            <Text style={[styles.editProfileText, { color: theme.colorPrimary }]}>Edit Profile →</Text>
           </Pressable>
         </View>
 
         {/* ACCOUNT */}
-        <Text style={styles.sectionTitle}>ACCOUNT</Text>
-        <View style={styles.cardGroup}>
+        <Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>ACCOUNT</Text>
+        <View style={[styles.cardGroup, { backgroundColor: theme.colorSurface, borderColor: theme.colorOutline, borderWidth: StyleSheet.hairlineWidth }]}>
           <SettingRow icon="👤" label="Personal Information" onPress={() => {}} />
           <SettingRow icon="🔒" label="Change Password" onPress={() => {}} />
           <SettingRow 
@@ -129,8 +128,8 @@ export default function VendorSettingsScreen() {
             label="KYC & Verification" 
             onPress={() => {}} 
             rightElement={
-              <View style={[styles.verifiedBadge, { marginRight: 8 }]}>
-                <Text style={styles.verifiedText}>Verified ✓</Text>
+              <View style={[styles.verifiedBadge, { marginRight: 8, backgroundColor: `${theme.success}15` }]}>
+                <Text style={[styles.verifiedText, { color: theme.success }]}>Verified ✓</Text>
               </View>
             }
           />
@@ -139,13 +138,13 @@ export default function VendorSettingsScreen() {
             label="Linked Bank Account" 
             showDivider={false} 
             onPress={() => {}} 
-            rightElement={<Text style={styles.inlineValue}>•••• 4521</Text>}
+            rightElement={<Text style={[styles.inlineValue, { color: theme.textSecondary }]}>•••• 4521</Text>}
           />
         </View>
 
         {/* NOTIFICATIONS */}
-        <Text style={styles.sectionTitle}>NOTIFICATIONS</Text>
-        <View style={styles.cardGroup}>
+        <Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>NOTIFICATIONS</Text>
+        <View style={[styles.cardGroup, { backgroundColor: theme.colorSurface, borderColor: theme.colorOutline, borderWidth: StyleSheet.hairlineWidth }]}>
           <SettingRow 
             icon="📲" 
             label="EMI Reminders" 
@@ -170,8 +169,8 @@ export default function VendorSettingsScreen() {
         </View>
 
         {/* SECURITY */}
-        <Text style={styles.sectionTitle}>SECURITY</Text>
-        <View style={styles.cardGroup}>
+        <Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>SECURITY</Text>
+        <View style={[styles.cardGroup, { backgroundColor: theme.colorSurface, borderColor: theme.colorOutline, borderWidth: StyleSheet.hairlineWidth }]}>
           <SettingRow 
             icon="👁️" 
             label="Biometric Login" 
@@ -181,7 +180,7 @@ export default function VendorSettingsScreen() {
             icon="🔐" 
             label="Two-Factor Authentication" 
             onPress={() => {}} 
-            rightElement={<Text style={[styles.inlineValue, { color: '#2D7D46' }]}>Enabled</Text>}
+            rightElement={<Text style={[styles.inlineValue, { color: theme.success }]}>Enabled</Text>}
           />
           <SettingRow 
             icon="📱" 
@@ -192,8 +191,8 @@ export default function VendorSettingsScreen() {
         </View>
 
         {/* SUPPORT */}
-        <Text style={styles.sectionTitle}>SUPPORT</Text>
-        <View style={styles.cardGroup}>
+        <Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>SUPPORT</Text>
+        <View style={[styles.cardGroup, { backgroundColor: theme.colorSurface, borderColor: theme.colorOutline, borderWidth: StyleSheet.hairlineWidth }]}>
           <SettingRow icon="❓" label="Help & FAQ" onPress={() => {}} />
           <SettingRow icon="💬" label="Contact Support" onPress={() => {}} />
           <SettingRow icon="⭐" label="Rate VendorPASS" onPress={() => {}} />
@@ -204,28 +203,29 @@ export default function VendorSettingsScreen() {
         <Pressable 
           style={({ pressed }) => [
             styles.signOutBtn, 
-            pressed && { transform: [{ scale: 0.98 }], opacity: 0.8 }
+            pressed && { transform: [{ scale: 0.98 }], opacity: 0.8 },
+            { borderColor: theme.colorError }
           ]}
           onPress={() => setShowSignOut(true)}
         >
           <Text style={{ fontSize: 18, marginRight: 8 }}>🚪</Text>
-          <Text style={styles.signOutText}>Sign Out</Text>
+          <Text style={[styles.signOutText, { color: theme.colorError }]}>Sign Out</Text>
         </Pressable>
 
-        <Text style={styles.versionText}>VendorPASS v1.0.0</Text>
+        <Text style={[styles.versionText, { color: theme.textSecondary }]}>VendorPASS v1.0.0</Text>
       </ScrollView>
 
       {/* Sign Out Bottom Sheet Modal */}
       <Modal visible={showSignOut} transparent animationType="slide">
         <View style={styles.modalOverlay}>
           <Pressable style={StyleSheet.absoluteFill} onPress={() => setShowSignOut(false)} />
-          <View style={styles.bottomSheet}>
-            <Text style={styles.sheetTitle}>Are you sure you want to sign out?</Text>
+          <View style={[styles.bottomSheet, { backgroundColor: theme.colorSurface }]}>
+            <Text style={[styles.sheetTitle, { color: theme.colorOnSurface }]}>Are you sure you want to sign out?</Text>
             <View style={styles.sheetRow}>
-              <Pressable style={styles.sheetBtnOutlined} onPress={() => setShowSignOut(false)}>
-                <Text style={styles.sheetBtnOutlinedText}>Cancel</Text>
+              <Pressable style={[styles.sheetBtnOutlined, { borderColor: theme.colorOutline }]} onPress={() => setShowSignOut(false)}>
+                <Text style={[styles.sheetBtnOutlinedText, { color: theme.colorOnSurface }]}>Cancel</Text>
               </Pressable>
-              <Pressable style={styles.sheetBtnFilled} onPress={handleSignOut}>
+              <Pressable style={[styles.sheetBtnFilled, { backgroundColor: theme.colorError }]} onPress={handleSignOut}>
                 <Text style={styles.sheetBtnFilledText}>Sign Out</Text>
               </Pressable>
             </View>
@@ -239,25 +239,6 @@ export default function VendorSettingsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F9F5EF',
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingTop: 60,
-    paddingBottom: 16,
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-  },
-  headerTitle: {
-    fontFamily: 'Playfair Display',
-    fontSize: 24,
-    color: '#1A3A4A',
   },
   scrollContent: {
     padding: 16,

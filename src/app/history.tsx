@@ -18,10 +18,16 @@ import { Spacing } from '@/constants/theme';
 import { SymbolView } from '@/components/symbol-view';
 import { supabase } from '@/lib/supabase';
 import { BottomTabBar } from '@/components/BottomTabBar';
+import { useTheme } from '@/hooks/use-theme';
+import { TopAppBar } from '@/components/TopAppBar';
+import { EmptyState } from '@/components/EmptyState';
+import { FilledButton, OutlinedButton, TextButton } from '@/components/Button';
+import Animated, { FadeInUp } from 'react-native-reanimated';
 
 export default function HistoryScreen() {
   const { user } = useAuth();
   const insets = useSafeAreaInsets();
+  const theme = useTheme();
 
   const [vendorApplications, setVendorApplications] = useState<any[]>([]);
   
@@ -295,32 +301,30 @@ export default function HistoryScreen() {
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: theme.colorBackground }]}>
 
       {/* Header */}
-      <View style={[styles.header, { paddingTop: Math.max(insets.top, 20) }]}>
-        <Pressable onPress={() => router.back()} style={styles.backButton}>
-          <SymbolView name="arrow_back" size={24} tintColor="#1c1c18" />
-        </Pressable>
-        <Text style={styles.headerTitle}>Active Applications</Text>
-        <View style={{ width: 40 }} />
-      </View>
+      <TopAppBar title="Active Applications" showBackButton />
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        {vendorApplications.length > 0 ? vendorApplications.map((app) => (
-          <View key={app.id} style={[styles.activityCard, { marginTop: 12, flexDirection: 'column', alignItems: 'stretch' }]}>
+        {vendorApplications.length > 0 ? vendorApplications.map((app, index) => (
+          <Animated.View 
+            entering={FadeInUp.delay(index * 100).springify()}
+            key={app.id} 
+            style={[styles.activityCard, { marginTop: 12, flexDirection: 'column', alignItems: 'stretch', backgroundColor: theme.colorSurface, borderColor: theme.colorOutline }]}
+          >
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
               <View style={styles.activityLeft}>
-                <Image source={{ uri: app.profiles?.selfie || 'https://images.unsplash.com/photo-1560250097-0b93528c311a?q=80&w=200&auto=format&fit=crop' }} style={{ width: 40, height: 40, borderRadius: 20, borderWidth: 1, borderColor: '#E8E0D5' }} />
+                <Image source={{ uri: app.profiles?.selfie || 'https://images.unsplash.com/photo-1560250097-0b93528c311a?q=80&w=200&auto=format&fit=crop' }} style={{ width: 40, height: 40, borderRadius: 20, borderWidth: 1, borderColor: theme.colorOutline }} />
                 <View style={{ marginLeft: 12 }}>
-                  <Text style={styles.activityItemTitle}>{app.profiles?.name || 'Lender'}</Text>
-                  <Text style={styles.activityItemDate}>
+                  <Text style={[styles.activityItemTitle, { color: theme.colorOnSurface }]}>{app.profiles?.name || 'Lender'}</Text>
+                  <Text style={[styles.activityItemDate, { color: theme.textSecondary }]}>
                     ₹{Number(app.amount).toLocaleString('en-IN')} • {app.interest_rate ? `${app.interest_rate}% p.a. • ` : ''}{app.tenure}
                   </Text>
                 </View>
               </View>
-              <View style={{ backgroundColor: app.status === 'ACCEPTED' ? '#2D7D4620' : app.status === 'DECLINED' ? '#E74C3C20' : '#D4820A20', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 }}>
-                <Text style={{ fontSize: 10, fontWeight: 'bold', color: app.status === 'ACCEPTED' ? '#2D7D46' : app.status === 'DECLINED' ? '#E74C3C' : '#D4820A' }}>
+              <View style={{ backgroundColor: app.status === 'ACCEPTED' ? `${theme.success}20` : app.status === 'DECLINED' ? `${theme.error}20` : `${theme.colorPrimary}20`, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 }}>
+                <Text style={{ fontSize: 10, fontWeight: 'bold', color: app.status === 'ACCEPTED' ? theme.success : app.status === 'DECLINED' ? theme.error : theme.colorPrimary }}>
                   {app.status}
                 </Text>
               </View>
@@ -333,75 +337,69 @@ export default function HistoryScreen() {
               const isFullyPaid = amountPaid >= totalAmount;
 
               return (
-                <View style={{ marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: '#E8E0D5', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                <View style={{ marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: theme.colorOutline, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
                   <View>
-                    <Text style={{ fontSize: 10, color: '#6B6B6B', fontWeight: 'bold' }}>REPAID</Text>
-                    <Text style={{ fontSize: 12, fontWeight: 'bold', color: '#2D7D46' }}>₹{amountPaid.toLocaleString('en-IN')} / ₹{principal.toLocaleString('en-IN')}</Text>
+                    <Text style={{ fontSize: 10, color: theme.textSecondary, fontWeight: 'bold' }}>REPAID</Text>
+                    <Text style={{ fontSize: 12, fontWeight: 'bold', color: theme.success }}>₹{amountPaid.toLocaleString('en-IN')} / ₹{principal.toLocaleString('en-IN')}</Text>
                   </View>
                   {isFullyPaid ? (
-                    <View style={{ backgroundColor: '#E8F5E9', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12, borderWidth: 1, borderColor: '#2D7D4630' }}>
-                      <Text style={{ color: '#2D7D46', fontSize: 12, fontWeight: 'bold' }}>Loan Repaid 🎉</Text>
+                    <View style={{ backgroundColor: `${theme.success}15`, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12, borderWidth: 1, borderColor: `${theme.success}30` }}>
+                      <Text style={{ color: theme.success, fontSize: 12, fontWeight: 'bold' }}>Loan Repaid 🎉</Text>
                     </View>
                   ) : (
-                    <Pressable
+                    <FilledButton
+                      label="Repay EMI"
                       onPress={() => {
                         setSelectedRepayment(app);
                         setRepayModalVisible(true);
                       }}
-                      style={{ backgroundColor: '#2D7D46', paddingHorizontal: 16, paddingVertical: 6, borderRadius: 12 }}
-                    >
-                      <Text style={{ color: '#fff', fontSize: 12, fontWeight: 'bold' }}>Repay EMI</Text>
-                    </Pressable>
+                      style={{ height: 36, borderRadius: 12 }}
+                    />
                   )}
                 </View>
               );
             })()}
             {app.status === 'PENDING' && (
               app.created_by === 'VENDOR' ? (
-                <View style={{ marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: '#E8E0D5', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                <View style={{ marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: theme.colorOutline, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
                   <View>
-                    <Text style={{ fontSize: 9, color: '#8E8E93', fontWeight: 'bold', letterSpacing: 0.5 }}>STATUS</Text>
-                    <Text style={{ fontSize: 13, fontWeight: '600', color: '#D4820A', marginTop: 2 }}>Awaiting Lender Review</Text>
+                    <Text style={{ fontSize: 9, color: theme.textSecondary, fontWeight: 'bold', letterSpacing: 0.5 }}>STATUS</Text>
+                    <Text style={{ fontSize: 13, fontWeight: '600', color: theme.colorPrimary, marginTop: 2 }}>Awaiting Lender Review</Text>
                   </View>
-                  <Pressable
+                  <OutlinedButton
+                    label="Cancel Request"
                     onPress={() => handleVendorCancelOffer(app.id)}
-                    style={{ backgroundColor: '#E74C3C15', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 12 }}
-                  >
-                    <Text style={{ color: '#E74C3C', fontSize: 12, fontWeight: 'bold' }}>Cancel Request</Text>
-                  </Pressable>
+                    style={{ height: 36, borderRadius: 12 }}
+                  />
                 </View>
               ) : (
-                <View style={{ marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: '#E8E0D5', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                <View style={{ marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: theme.colorOutline, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
                   <View>
-                    <Text style={{ fontSize: 9, color: '#8E8E93', fontWeight: 'bold', letterSpacing: 0.5 }}>OFFERED RATE</Text>
-                    <Text style={{ fontSize: 14, fontWeight: 'bold', color: '#D4820A', marginTop: 2 }}>{app.interest_rate || '12'}% p.a.</Text>
+                    <Text style={{ fontSize: 9, color: theme.textSecondary, fontWeight: 'bold', letterSpacing: 0.5 }}>OFFERED RATE</Text>
+                    <Text style={{ fontSize: 14, fontWeight: 'bold', color: theme.colorPrimary, marginTop: 2 }}>{app.interest_rate || '12'}% p.a.</Text>
                   </View>
                   <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                    <Pressable
+                    <OutlinedButton
+                      label="Decline"
                       onPress={() => handleVendorRejectOffer(app.id)}
-                      style={{ backgroundColor: '#E74C3C15', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 12, marginRight: 12 }}
-                    >
-                      <Text style={{ color: '#E74C3C', fontSize: 12, fontWeight: 'bold' }}>Decline</Text>
-                    </Pressable>
-                    
-                    <Pressable
+                      style={{ height: 36, borderRadius: 12, marginRight: 12 }}
+                    />
+                    <FilledButton
+                      label="Accept Offer"
                       onPress={() => handleVendorAcceptOffer(app)}
-                      style={{ backgroundColor: '#2D7D46', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 12 }}
-                    >
-                      <Text style={{ color: '#fff', fontSize: 12, fontWeight: 'bold' }}>Accept Offer</Text>
-                    </Pressable>
+                      style={{ height: 36, borderRadius: 12 }}
+                    />
                   </View>
                 </View>
               )
             )}
-          </View>
+          </Animated.View>
         )) : (
-          <View style={{ marginTop: 40, alignItems: 'center' }}>
-            <SymbolView name="folder_open" size={48} tintColor="#D1D1D6" />
-            <Text style={{ marginTop: 12, color: '#A0A0A0', fontSize: 15, fontFamily: Platform.OS === 'web' ? 'DM Sans' : 'sans-serif' }}>
-              No active applications found.
-            </Text>
-          </View>
+          <EmptyState
+            iconName="folder_open"
+            title="No active applications found"
+            description="You don't have any active loan applications or offers right now."
+          />
         )}
       </ScrollView>
 
@@ -416,53 +414,53 @@ export default function HistoryScreen() {
         }}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.modalCardContainer}>
+          <View style={[styles.modalCardContainer, { backgroundColor: theme.colorSurface }]}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitleText}>Repay EMI</Text>
+              <Text style={[styles.modalTitleText, { color: theme.colorOnSurface }]}>Repay EMI</Text>
               <Pressable onPress={() => {
                 setRepayModalVisible(false);
                 setSelectedRepayment(null);
-              }} style={styles.modalCloseBtn}>
-                <SymbolView tintColor="#1c1c18" name="xmark" size={20} />
+              }} style={[styles.modalCloseBtn, { backgroundColor: theme.backgroundElement }]}>
+                <SymbolView tintColor={theme.colorOnSurface} name="xmark" size={20} />
               </Pressable>
             </View>
 
             {selectedRepayment && (
               <View style={styles.modalBody}>
-                <View style={{ backgroundColor: '#F5F5F5', padding: 16, borderRadius: 12, marginBottom: 16 }}>
-                  <Text style={{ fontSize: 12, color: '#6B6B6B', marginBottom: 4 }}>Total Loan</Text>
-                  <Text style={{ fontSize: 16, fontWeight: 'bold' }}>₹{totalLoanAmount.toLocaleString('en-IN')}</Text>
-                  <View style={{ height: 1, backgroundColor: '#E0E0E0', marginVertical: 8 }} />
-                  <Text style={{ fontSize: 12, color: '#6B6B6B', marginBottom: 4 }}>Already Paid</Text>
-                  <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#2D7D46' }}>₹{(Number(selectedRepayment.amount_paid) || 0).toLocaleString('en-IN')}</Text>
+                <View style={{ backgroundColor: theme.backgroundElement, padding: 16, borderRadius: 12, marginBottom: 16 }}>
+                  <Text style={{ fontSize: 12, color: theme.textSecondary, marginBottom: 4 }}>Total Loan</Text>
+                  <Text style={{ fontSize: 16, fontWeight: 'bold', color: theme.colorOnSurface }}>₹{totalLoanAmount.toLocaleString('en-IN')}</Text>
+                  <View style={{ height: 1, backgroundColor: theme.colorOutline, marginVertical: 8 }} />
+                  <Text style={{ fontSize: 12, color: theme.textSecondary, marginBottom: 4 }}>Already Paid</Text>
+                  <Text style={{ fontSize: 16, fontWeight: 'bold', color: theme.success }}>₹{(Number(selectedRepayment.amount_paid) || 0).toLocaleString('en-IN')}</Text>
                 </View>
 
-                <Text style={styles.modalLabel}>Current EMI Amount Due</Text>
+                <Text style={[styles.modalLabel, { color: theme.colorOnSurface }]}>Current EMI Amount Due</Text>
                 {isFullyPaid ? (
-                  <View style={[styles.modalInput, { backgroundColor: '#E8F5E9', borderColor: '#2D7D46', justifyContent: 'center' }]}>
-                    <Text style={{ fontSize: 16, color: '#2D7D46', fontWeight: 'bold' }}>Loan Fully Paid! 🎉</Text>
+                  <View style={[styles.modalInput, { backgroundColor: `${theme.success}10`, borderColor: theme.success, justifyContent: 'center' }]}>
+                    <Text style={{ fontSize: 16, color: theme.success, fontWeight: 'bold' }}>Loan Fully Paid! 🎉</Text>
                   </View>
                 ) : amountDue > 0 ? (
-                  <View style={[styles.modalInput, { backgroundColor: '#F9F5EF', justifyContent: 'center' }]}>
-                    <Text style={{ fontSize: 18, fontWeight: 'bold' }}>₹{amountDue.toLocaleString('en-IN')}</Text>
+                  <View style={[styles.modalInput, { backgroundColor: theme.backgroundElement, borderColor: theme.colorOutline, justifyContent: 'center' }]}>
+                    <Text style={{ fontSize: 18, fontWeight: 'bold', color: theme.colorOnSurface }}>₹{amountDue.toLocaleString('en-IN')}</Text>
                   </View>
                 ) : (
-                  <View style={[styles.modalInput, { backgroundColor: '#FFF3E0', borderColor: '#D4820A', justifyContent: 'center' }]}>
-                    <Text style={{ fontSize: 14, color: '#D4820A', fontWeight: '600' }}>EMIs are up to date.</Text>
-                    <Text style={{ fontSize: 12, color: '#895100', marginTop: 4 }}>Next EMI due in {nextUnlockMinutes} min</Text>
+                  <View style={[styles.modalInput, { backgroundColor: `${theme.colorPrimary}10`, borderColor: theme.colorPrimary, justifyContent: 'center' }]}>
+                    <Text style={{ fontSize: 14, color: theme.colorPrimary, fontWeight: '600' }}>EMIs are up to date.</Text>
+                    <Text style={{ fontSize: 12, color: theme.colorPrimary, marginTop: 4 }}>Next EMI due in {nextUnlockMinutes} min</Text>
                   </View>
                 )}
 
-                <Text style={{ fontSize: 12, color: '#895100', marginTop: 8 }}>
+                <Text style={{ fontSize: 12, color: theme.colorPrimary, marginTop: 8 }}>
                   Note: Amount will be deducted from your VendorPASS Wallet.
                 </Text>
 
-                <Pressable 
-                  onPress={amountDue > 0 ? handleRepayLoan : undefined} 
-                  style={[styles.modalSubmitBtn, { backgroundColor: amountDue > 0 ? '#2D7D46' : '#A0A0A0', marginTop: 24 }]}
-                >
-                  <Text style={styles.modalSubmitBtnText}>Proceed to Pay</Text>
-                </Pressable>
+                <FilledButton
+                  label="Proceed to Pay"
+                  onPress={handleRepayLoan}
+                  disabled={amountDue <= 0}
+                  style={{ marginTop: 24 }}
+                />
               </View>
             )}
           </View>
@@ -477,27 +475,6 @@ export default function HistoryScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F9F5EF',
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: Spacing.four,
-    paddingBottom: Spacing.four,
-    backgroundColor: '#F9F5EF',
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(0,0,0,0.05)',
-  },
-  backButton: {
-    padding: 8,
-    marginLeft: -8,
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#1c1c18',
-    fontFamily: Platform.OS === 'web' ? 'Sora' : 'sans-serif',
   },
   scrollContent: {
     padding: Spacing.four,

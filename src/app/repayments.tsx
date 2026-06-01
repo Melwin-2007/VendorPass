@@ -13,9 +13,14 @@ import { Spacing } from '@/constants/theme';
 import { supabase } from '@/lib/supabase';
 import { LenderBottomTabBar } from '@/components/BottomTabBar';
 import { SymbolView } from '@/components/symbol-view';
+import { useTheme } from '@/hooks/use-theme';
+import { TopAppBar } from '@/components/TopAppBar';
+import { EmptyState } from '@/components/EmptyState';
+import Animated, { FadeInUp } from 'react-native-reanimated';
 
 export default function RepaymentsScreen() {
   const { user } = useAuth();
+  const theme = useTheme();
   const insets = useSafeAreaInsets();
   const [repayments, setRepayments] = useState<any[]>([]);
 
@@ -48,46 +53,49 @@ export default function RepaymentsScreen() {
   }, [user]);
 
   return (
-    <View style={styles.container}>
-      <View style={[styles.header, { paddingTop: Math.max(insets.top, 20) }]}>
-        <Text style={styles.headerTitle}>Repayments Tracker</Text>
-      </View>
+    <View style={[styles.container, { backgroundColor: theme.colorBackground }]}>
+      <TopAppBar title="Repayments Tracker" />
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        {repayments.length > 0 ? repayments.map((loan) => {
+        {repayments.length > 0 ? repayments.map((loan, index) => {
           const totalPaid = Number(loan.amount_paid) || 0;
           const totalLoan = Number(loan.amount) + (Number(loan.amount) * (Number(loan.interest_rate) / 100));
           const progress = Math.min((totalPaid / totalLoan) * 100, 100);
 
           return (
-            <View key={loan.id} style={styles.card}>
+            <Animated.View 
+              entering={FadeInUp.delay(index * 100).springify()}
+              key={loan.id} 
+              style={[styles.card, { backgroundColor: theme.colorSurface, borderColor: theme.colorOutline }]}
+            >
               <View style={styles.cardHeader}>
                 <Image source={{ uri: loan.profiles?.selfie || 'https://images.unsplash.com/photo-1560250097-0b93528c311a?q=80&w=200&auto=format&fit=crop' }} style={styles.avatar} />
                 <View style={{ flex: 1, marginLeft: 12 }}>
-                  <Text style={styles.vendorName}>{loan.profiles?.name || 'Vendor'}</Text>
-                  <Text style={styles.loanDetails}>₹{loan.amount.toLocaleString('en-IN')} @ {loan.interest_rate}% p.a.</Text>
+                  <Text style={[styles.vendorName, { color: theme.colorOnSurface }]}>{loan.profiles?.name || 'Vendor'}</Text>
+                  <Text style={[styles.loanDetails, { color: theme.textSecondary }]}>₹{loan.amount.toLocaleString('en-IN')} @ {loan.interest_rate}% p.a.</Text>
                 </View>
-                <View style={styles.statusBadge}>
-                  <Text style={styles.statusText}>ACTIVE</Text>
+                <View style={[styles.statusBadge, { backgroundColor: `${theme.success}15` }]}>
+                  <Text style={[styles.statusText, { color: theme.success }]}>ACTIVE</Text>
                 </View>
               </View>
 
               <View style={styles.progressContainer}>
                 <View style={styles.progressTextRow}>
                   <Text style={styles.progressLabel}>Recovered</Text>
-                  <Text style={styles.progressValue}>₹{totalPaid.toLocaleString('en-IN')} / ₹{totalLoan.toLocaleString('en-IN')}</Text>
+                  <Text style={[styles.progressValue, { color: theme.success }]}>₹{totalPaid.toLocaleString('en-IN')} / ₹{totalLoan.toLocaleString('en-IN')}</Text>
                 </View>
-                <View style={styles.progressBarBg}>
-                  <View style={[styles.progressBarFill, { width: `${progress}%` }]} />
+                <View style={[styles.progressBarBg, { backgroundColor: theme.backgroundElement }]}>
+                  <View style={[styles.progressBarFill, { width: `${progress}%`, backgroundColor: theme.success }]} />
                 </View>
               </View>
-            </View>
+            </Animated.View>
           );
         }) : (
-          <View style={styles.emptyState}>
-            <SymbolView name="receipt" size={48} tintColor="#D1D1D6" />
-            <Text style={styles.emptyText}>No active repayments to track.</Text>
-          </View>
+          <EmptyState
+            iconName="receipt"
+            title="No active repayments to track"
+            description="Active loans and repayment progress will appear here."
+          />
         )}
       </ScrollView>
 
@@ -99,20 +107,6 @@ export default function RepaymentsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F9F5EF',
-  },
-  header: {
-    paddingHorizontal: Spacing.four,
-    paddingBottom: Spacing.four,
-    backgroundColor: '#F9F5EF',
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(0,0,0,0.05)',
-  },
-  headerTitle: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: '#1c1c18',
-    fontFamily: Platform.OS === 'web' ? 'Sora' : 'sans-serif',
   },
   scrollContent: {
     padding: Spacing.four,

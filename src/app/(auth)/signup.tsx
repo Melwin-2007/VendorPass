@@ -178,6 +178,12 @@ export default function SignUpScreen() {
       phone,
       selfie,
       businessPhoto,
+      pref_loan_alerts: true,
+      pref_emi_reminders: true,
+      pref_overdue_alerts: true,
+      pref_chat_notifs: true,
+      pref_weekly_report: false,
+      pref_biometric: true,
     }, password);
 
     if (success) {

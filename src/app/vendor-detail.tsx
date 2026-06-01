@@ -22,6 +22,8 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/context/auth';
 import Toast from 'react-native-toast-message';
 import Animated, { FadeIn, FadeInUp, SlideInRight, useSharedValue, useAnimatedProps, withTiming, Easing } from 'react-native-reanimated';
+import { useTheme } from '@/hooks/use-theme';
+import { TopAppBar } from '@/components/TopAppBar';
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 const AnimatedPath = Animated.createAnimatedComponent(Path);
@@ -578,6 +580,7 @@ const FinancialsContent = ({ monthlyInflows, monthlyOutflows, expenseRatio, marg
 export default function VendorDetailScreen() {
   const { user } = useAuth();
   const insets = useSafeAreaInsets();
+  const theme = useTheme();
   const params = useLocalSearchParams<{
     vendorId: string;
     oppId?: string;
@@ -924,8 +927,8 @@ export default function VendorDetailScreen() {
 
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#D4820A" />
+      <View style={[styles.loadingContainer, { backgroundColor: theme.colorBackground }]}>
+        <ActivityIndicator size="large" color={theme.colorPrimary} />
       </View>
     );
   }
@@ -933,23 +936,10 @@ export default function VendorDetailScreen() {
   const ratingText = score >= 750 ? 'Elite' : score >= 650 ? 'High' : 'Standard';
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
+    <View style={[styles.container, { backgroundColor: theme.colorBackground }]}>
       
       {/* 1. Header Navigation Bar */}
-      <View style={styles.topHeader}>
-        <Pressable onPress={() => router.back()} style={styles.backBtn}>
-          <SymbolView name="arrow.left" size={20} tintColor="#1A3A4A" />
-        </Pressable>
-        <Text style={styles.headerWordmark}>
-          Vendor<Text style={{ color: '#D4820A' }}>PASS</Text>
-        </Text>
-        <View style={styles.headerProfileIcon}>
-          <Image
-            style={{ width: 32, height: 32, borderRadius: 16 }}
-            source={{ uri: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?q=80&w=150&auto=format&fit=crop' }}
-          />
-        </View>
-      </View>
+      <TopAppBar title="Vendor Profile" showBackButton />
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         

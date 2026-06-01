@@ -1055,7 +1055,7 @@ export default function DashboardScreen() {
 
   if (isBank) {
     return (
-      <View style={[styles.container, { backgroundColor: '#fdf9f3' }]}>
+      <View style={[styles.container, { backgroundColor: theme.colorBackground }]}>
         <BankDashboard />
         <LenderBottomTabBar activeTab="home" />
       </View>
@@ -1063,7 +1063,7 @@ export default function DashboardScreen() {
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: isLender || isBank ? '#fdf9f3' : '#F9F5EF' }]}>
+    <View style={[styles.container, { backgroundColor: theme.colorBackground }]}>
 
 
       {isLender && renderLenderTopAppBar()}
