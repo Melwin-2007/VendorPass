@@ -59,7 +59,7 @@ async function fixDb() {
       console.log(`Fixing request ${req.id} for vendor ${req.vendor_id}`);
       const { error } = await supabase
         .from('public_loan_requests')
-        .update({ status: 'FULFILLED' })
+        .update({ status: 'FUNDED' })
         .eq('id', req.id);
         
       if (error) console.error(error);

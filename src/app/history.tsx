@@ -107,6 +107,13 @@ export default function HistoryScreen() {
       showToast('Acceptance failed. Try again.', 'error');
       return;
     }
+
+    // Mark any public loan request of this vendor as FUNDED
+    await supabase
+      .from('public_loan_requests')
+      .update({ status: 'FUNDED' })
+      .eq('vendor_id', user.id)
+      .eq('status', 'PENDING');
     
     // Send from Lender
     const { error: tx1Err } = await supabase.from('wallet_transactions').insert({
@@ -344,7 +351,7 @@ export default function HistoryScreen() {
                   </View>
                   {isFullyPaid ? (
                     <View style={{ backgroundColor: `${theme.success}15`, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12, borderWidth: 1, borderColor: `${theme.success}30` }}>
-                      <Text style={{ color: theme.success, fontSize: 12, fontWeight: 'bold' }}>Loan Repaid 🎉</Text>
+                      <Text style={{ color: theme.success, fontSize: 12, fontWeight: 'bold' }}>Loan Repaid</Text>
                     </View>
                   ) : (
                     <FilledButton

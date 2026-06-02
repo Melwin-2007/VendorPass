@@ -21,6 +21,8 @@ const ICON_MAPPING: Record<string, { set: IconSet; name: string }> = {
   'chevron.left': { set: 'MaterialIcons', name: 'chevron-left' },
   'chevron_left': { set: 'MaterialIcons', name: 'chevron-left' },
   'arrow.left': { set: 'MaterialIcons', name: 'arrow-back' },
+  'arrow-backward': { set: 'MaterialIcons', name: 'arrow-back' },
+  'arrow_backward': { set: 'MaterialIcons', name: 'arrow-back' },
   'chevron.right': { set: 'MaterialIcons', name: 'chevron-right' },
   'chevron_right': { set: 'MaterialIcons', name: 'chevron-right' },
   'chevron.down': { set: 'MaterialIcons', name: 'keyboard-arrow-down' },
@@ -29,6 +31,9 @@ const ICON_MAPPING: Record<string, { set: IconSet; name: string }> = {
   'xmark.circle.fill': { set: 'MaterialIcons', name: 'cancel' },
   'xmark_circle_fill': { set: 'MaterialIcons', name: 'cancel' },
   'xmark.seal.fill': { set: 'MaterialIcons', name: 'cancel' },
+  'trash': { set: 'MaterialIcons', name: 'delete' },
+  'checkmark-shield-fill': { set: 'MaterialIcons', name: 'verified' },
+  'checkmark.shield.fill': { set: 'MaterialIcons', name: 'verified' },
 
   // Indicators & Checkmarks
   'checkmark': { set: 'MaterialIcons', name: 'check' },

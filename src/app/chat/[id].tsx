@@ -106,11 +106,25 @@ export default function ConversationScreen() {
   // Action: Accept Counter Offer
   const handleAcceptCounterOffer = async (loanOfferId: string) => {
     try {
+      const { data: offer } = await supabase
+        .from('loan_offers')
+        .select('vendor_id')
+        .eq('id', loanOfferId)
+        .single();
+
       const { error } = await supabase
         .from('loan_offers')
         .update({ status: 'ACCEPTED', accepted_at: new Date().toISOString() })
         .eq('id', loanOfferId);
       if (error) throw error;
+
+      if (offer?.vendor_id) {
+        await supabase
+          .from('public_loan_requests')
+          .update({ status: 'FUNDED' })
+          .eq('vendor_id', offer.vendor_id)
+          .eq('status', 'PENDING');
+      }
     } catch (err) {
       console.error('Error accepting offer:', err);
     }

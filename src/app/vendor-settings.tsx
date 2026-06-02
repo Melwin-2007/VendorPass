@@ -34,6 +34,31 @@ const CustomToggle = ({ value, onValueChange }: { value: boolean, onValueChange:
   );
 };
 
+const SettingRow = ({ icon, label, rightElement, showDivider = true, onPress }: any) => {
+  const theme = useTheme();
+  return (
+    <Pressable 
+      style={({ pressed }) => [
+        styles.settingRow, 
+        pressed && onPress && { transform: [{ scale: 0.98 }], backgroundColor: theme.backgroundElement }
+      ]}
+      onPress={onPress}
+      disabled={!onPress}
+    >
+      <View style={styles.settingRowLeft}>
+        <View style={[styles.iconBox, { backgroundColor: theme.backgroundElement }]}>
+          <Text style={{ fontSize: 18 }}>{icon}</Text>
+        </View>
+        <Text style={[styles.settingLabel, { color: theme.colorOnSurface }]}>{label}</Text>
+      </View>
+      <View style={styles.settingRowRight}>
+        {rightElement || <SymbolView name="chevron.right" size={14} tintColor={theme.textSecondary} />}
+      </View>
+      {showDivider && <View style={[styles.divider, { backgroundColor: theme.colorOutline }]} />}
+    </Pressable>
+  );
+};
+
 export default function VendorSettingsScreen() {
   const { user, signOut } = useAuth();
   const [showSignOut, setShowSignOut] = useState(false);
@@ -68,28 +93,6 @@ export default function VendorSettingsScreen() {
   };
 
   const theme = useTheme();
-
-  const SettingRow = ({ icon, label, rightElement, showDivider = true, onPress }: any) => (
-    <Pressable 
-      style={({ pressed }) => [
-        styles.settingRow, 
-        pressed && onPress && { transform: [{ scale: 0.98 }], backgroundColor: theme.backgroundElement }
-      ]}
-      onPress={onPress}
-      disabled={!onPress}
-    >
-      <View style={styles.settingRowLeft}>
-        <View style={[styles.iconBox, { backgroundColor: theme.backgroundElement }]}>
-          <Text style={{ fontSize: 18 }}>{icon}</Text>
-        </View>
-        <Text style={[styles.settingLabel, { color: theme.colorOnSurface }]}>{label}</Text>
-      </View>
-      <View style={styles.settingRowRight}>
-        {rightElement || <SymbolView name="chevron.right" size={14} tintColor={theme.textSecondary} />}
-      </View>
-      {showDivider && <View style={[styles.divider, { backgroundColor: theme.colorOutline }]} />}
-    </Pressable>
-  );
 
   return (
     <View style={[styles.container, { backgroundColor: theme.colorBackground }]}>

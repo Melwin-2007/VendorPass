@@ -342,7 +342,7 @@ export default function DashboardScreen() {
   const handleLinkSupplier = () => {
     if (!supplierName) return;
     const newActivity = {
-      id: Date.now().toString(),
+      id: `linked-${activities.length + 1}-${supplierName.replace(/\s+/g, '-').toLowerCase()}`,
       type: 'PAYMENT',
       title: `Linked Supplier: ${supplierName}`,
       date: 'Just now',
@@ -367,8 +367,8 @@ export default function DashboardScreen() {
       const lenderName = lenderData?.name || 'Lender';
       const vendorName = vendorData?.name || 'Vendor';
 
-      // Mark any public loan request from this vendor as FULFILLED so it stops showing in Explore
-      await supabase.from('public_loan_requests').update({ status: 'FULFILLED' }).eq('vendor_id', vendorId).eq('status', 'PENDING');
+      // Mark any public loan request from this vendor as FUNDED so it stops showing in Explore
+      await supabase.from('public_loan_requests').update({ status: 'FUNDED' }).eq('vendor_id', vendorId).eq('status', 'PENDING');
 
       // 1. Send transaction for Lender
       await supabase.from('wallet_transactions').insert({
@@ -666,7 +666,7 @@ export default function DashboardScreen() {
 
   const renderLenderDashboard = () => {
     const dbAcceptedOffers = lenderOffers.filter(o => o.status === 'ACCEPTED' && o.profiles?.name && o.profiles.name.trim() !== '');
-    const pendingOffers = lenderOffers.filter(o => o.status === 'PENDING' && o.profiles?.name && o.profiles.name.trim() !== '');
+    const pendingOffers = lenderOffers.filter(o => o.status === 'PENDING' && o.created_by === 'VENDOR' && o.profiles?.name && o.profiles.name.trim() !== '');
 
     const baseTimeVal = lenderBaseTime || ((user as any)?.created_at ? new Date((user as any).created_at).getTime() : 1773489600000);
     const nowTimeVal = lenderNowTime || 1773489600000;
