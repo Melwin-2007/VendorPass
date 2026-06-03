@@ -207,7 +207,8 @@ export default function SignUpScreen() {
 
   return (
     <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      enabled={Platform.OS === 'ios'}
+      behavior="padding"
       style={styles.container}
     >
       {Platform.OS === 'web' && (
@@ -300,7 +301,7 @@ export default function SignUpScreen() {
               <View 
                 style={[
                   styles.inputWrapper,
-                  focusedField === 'fullName' && styles.inputWrapperFocused
+                  Platform.OS === 'web' && focusedField === 'fullName' && styles.inputWrapperFocused
                 ]}
               >
                 <SymbolView name="person" size={20} tintColor="#A0A0A0" style={styles.inputIcon} />
@@ -322,7 +323,7 @@ export default function SignUpScreen() {
               <View 
                 style={[
                   styles.inputWrapper,
-                  focusedField === 'username' && styles.inputWrapperFocused
+                  Platform.OS === 'web' && focusedField === 'username' && styles.inputWrapperFocused
                 ]}
               >
                 <SymbolView name="alternate_email" size={20} tintColor="#A0A0A0" style={styles.inputIcon} />
@@ -345,7 +346,7 @@ export default function SignUpScreen() {
               <View 
                 style={[
                   styles.inputWrapper,
-                  focusedField === 'email' && styles.inputWrapperFocused
+                  Platform.OS === 'web' && focusedField === 'email' && styles.inputWrapperFocused
                 ]}
               >
                 <SymbolView name="mail" size={20} tintColor="#A0A0A0" style={styles.inputIcon} />
@@ -370,7 +371,7 @@ export default function SignUpScreen() {
                 style={[
                   styles.inputWrapper,
                   { paddingLeft: 0, overflow: 'hidden' },
-                  focusedField === 'phone' && styles.inputWrapperFocused
+                  Platform.OS === 'web' && focusedField === 'phone' && styles.inputWrapperFocused
                 ]}
               >
                 <View style={styles.phonePrefix}>
@@ -396,7 +397,7 @@ export default function SignUpScreen() {
               <View 
                 style={[
                   styles.inputWrapper,
-                  focusedField === 'password' && styles.inputWrapperFocused
+                  Platform.OS === 'web' && focusedField === 'password' && styles.inputWrapperFocused
                 ]}
               >
                 <SymbolView name="lock" size={20} tintColor="#A0A0A0" style={styles.inputIcon} />
@@ -449,7 +450,7 @@ export default function SignUpScreen() {
               <View 
                 style={[
                   styles.inputWrapper,
-                  focusedField === 'confirmPassword' && styles.inputWrapperFocused
+                  Platform.OS === 'web' && focusedField === 'confirmPassword' && styles.inputWrapperFocused
                 ]}
               >
                 <SymbolView name="lock" size={20} tintColor="#A0A0A0" style={styles.inputIcon} />

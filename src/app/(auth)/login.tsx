@@ -46,7 +46,8 @@ export default function LoginScreen() {
 
   return (
     <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      enabled={Platform.OS === 'ios'}
+      behavior="padding"
       style={[styles.container, { backgroundColor: '#F9F5EF' }]}>
       
       {Platform.OS === 'web' && (
@@ -55,7 +56,10 @@ export default function LoginScreen() {
         `}} />
       )}
 
-      <ScrollView contentContainerStyle={styles.scrollContainer} bounces={false}>
+      <ScrollView 
+        contentContainerStyle={styles.scrollContainer} 
+        bounces={false}
+        keyboardShouldPersistTaps="handled">
         {/* Top Hero Section (Height ~350px) with Curve */}
         <View style={styles.heroWrapper}>
           <View style={styles.heroBackground}>
@@ -87,13 +91,13 @@ export default function LoginScreen() {
             <View
               style={[
                 styles.inputWrapper,
-                { borderColor: emailFocused ? '#D4820A' : '#E8E0D5' },
-                emailFocused && styles.inputFocusedShadow,
+                Platform.OS === 'web' && { borderColor: emailFocused ? '#D4820A' : '#E8E0D5' },
+                Platform.OS === 'web' && emailFocused && styles.inputFocusedShadow,
               ]}>
               <MaterialIcons
                 name="mail"
                 size={20}
-                color={emailFocused ? '#D4820A' : '#A0A0A0'}
+                color={Platform.OS === 'web' && emailFocused ? '#D4820A' : '#A0A0A0'}
                 style={styles.inputIcon}
               />
               <TextInput
@@ -121,13 +125,13 @@ export default function LoginScreen() {
             <View
               style={[
                 styles.inputWrapper,
-                { borderColor: passwordFocused ? '#D4820A' : '#E8E0D5' },
-                passwordFocused && styles.inputFocusedShadow,
+                Platform.OS === 'web' && { borderColor: passwordFocused ? '#D4820A' : '#E8E0D5' },
+                Platform.OS === 'web' && passwordFocused && styles.inputFocusedShadow,
               ]}>
               <MaterialIcons
                 name="lock"
                 size={20}
-                color={passwordFocused ? '#D4820A' : '#A0A0A0'}
+                color={Platform.OS === 'web' && passwordFocused ? '#D4820A' : '#A0A0A0'}
                 style={styles.inputIcon}
               />
               <TextInput
@@ -139,7 +143,7 @@ export default function LoginScreen() {
                 onChangeText={setPassword}
                 autoCapitalize="none"
                 onFocus={() => setPasswordFocused(true)}
-                onBlur={() => passwordFocused && setPasswordFocused(false)}
+                onBlur={() => setPasswordFocused(false)}
               />
               <Pressable style={styles.eyeButton} onPress={() => setSecureText(!secureText)}>
                 <MaterialIcons
@@ -221,12 +225,12 @@ const styles = StyleSheet.create({
   patternOverlay: {
     ...StyleSheet.absoluteFill,
     opacity: 0.1,
-    backgroundImage: 'radial-gradient(circle at 2px 2px, rgba(255,255,255,0.2) 1px, transparent 0)',
-    backgroundSize: '40px 40px',
     ...Platform.select({
-      native: {
-        // Native fallback pattern if any
+      web: {
+        backgroundImage: 'radial-gradient(circle at 2px 2px, rgba(255,255,255,0.2) 1px, transparent 0)',
+        backgroundSize: '40px 40px',
       },
+      default: {},
     }),
   },
   glowRight: {
@@ -281,7 +285,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   card: {
-    flex: 1,
     backgroundColor: '#FFFFFF',
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
@@ -340,6 +343,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     height: 56,
     borderWidth: 1.5,
+    borderColor: '#E8E0D5',
     borderRadius: 14,
     backgroundColor: '#ffffff',
     paddingHorizontal: Spacing.three,
@@ -353,7 +357,7 @@ const styles = StyleSheet.create({
         shadowRadius: 6,
       },
       android: {
-        elevation: 1,
+        // Removed elevation to prevent Android layout shift bug during input focus
       },
       web: {
         boxShadow: '0 0 0 4px rgba(212,130,10,0.1)',

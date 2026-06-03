@@ -37,7 +37,7 @@ INSERT INTO auth.users (
   '00000000-0000-0000-0000-000000000000', '3c3c3c3c-3c3c-3c3c-3c3c-3c3c3c3c3c3c',
   'authenticated', 'authenticated', 'vendor1@vendorpass.com', crypt('Password123!', gen_salt('bf')),
   now() - interval '6 months', '{"provider":"email","providers":["email"]}',
-  '{"name": "GreenLeaf Fresh Produce Pvt. Ltd.", "username": "greenleaf", "phone": "+919876543222", "role": "VENDOR", "selfie": "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?q=80&w=150&auto=format&fit=crop", "businessPhoto": "https://images.unsplash.com/photo-1590674899484-d5640e854abe?q=80&w=300&auto=format&fit=crop", "score": 782}',
+  '{"name": "GreenLeaf Fresh Produce Pvt. Ltd.", "username": "greenleaf", "phone": "+919876543222", "role": "VENDOR", "selfie": "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?q=80&w=150&auto=format&fit=crop", "businessPhoto": "https://images.unsplash.com/photo-1590674899484-d5640e854abe?q=80&w=300&auto=format&fit=crop", "score": 605}',
   now() - interval '6 months', now() - interval '6 months', '', '', '', ''
 );
 
@@ -52,35 +52,35 @@ INSERT INTO auth.identities (
 -- Update profile with exact score and detailed trustScoreData
 UPDATE public.profiles
 SET 
-  score = 782,
+  score = 605,
   created_at = now() - interval '6 months',
   trust_score_data = '{
     "vendor_id": "3c3c3c3c-3c3c-3c3c-3c3c-3c3c3c3c3c3c",
     "score_date": "2026-06-02",
-    "trust_score": 782,
-    "risk_tier": "Low Risk",
-    "classification_badge": "GOLD - HIGH ELIGIBILITY",
-    "default_probability": "1.1%",
-    "recommended_loan_limit": "₹3,50,000",
-    "recommended_interest_band": "10% - 12% p.a.",
-    "repayment_frequency_suggestion": "Monthly",
+    "trust_score": 605,
+    "risk_tier": "Medium Risk",
+    "classification_badge": "SILVER - MEDIUM ELIGIBILITY",
+    "default_probability": "4.8%",
+    "recommended_loan_limit": "₹1,50,000",
+    "recommended_interest_band": "14% - 16% p.a.",
+    "repayment_frequency_suggestion": "Weekly/Monthly",
     "pillar_scores": {
-      "income_stability": 92,
-      "cash_flow_health": 88,
-      "business_regularity": 95,
-      "payment_discipline": 96,
-      "digital_adoption": 90,
-      "risk_signals": 94
+      "income_stability": 68,
+      "cash_flow_health": 65,
+      "business_regularity": 72,
+      "payment_discipline": 70,
+      "digital_adoption": 75,
+      "risk_signals": 70
     },
-    "score_explanation": "Consistent daily business revenues, repeat customer orders, and clean transaction history.",
+    "score_explanation": "Consistent daily business revenues with standard retail transactions. Moderate credit score due to regular rent and helper salary expenses, but no active negative marks.",
     "key_findings": {
       "financial_integrity": [
-        "Highly regular cash flow from recurring customers (Sunrise Hotel, City Mart).",
-        "Payments received through traceable digital bank transfers."
+        "Regular cash flow from multiple sources (Golden Residency, Sunrise Hotel, City Mart).",
+        "Higher operational expenses including regular helper salaries and shop rent."
       ],
       "behavioral_indicators": [
-        "Strong digital payment trail.",
-        "Zero payment defaults or overdraft events."
+        "Active digital payment history.",
+        "Zero default history on commercial invoices."
       ],
       "compliance_gaps": []
     },
@@ -88,7 +88,7 @@ SET
     "history": [
       {
         "timestamp": "2026-06-02T12:00:00Z",
-        "score_change": 25,
+        "score_change": 12,
         "narrative": "Verified consistent sales volumes and strong repeat customer network.",
         "type": "reward"
       }
@@ -102,23 +102,37 @@ INSERT INTO public.wallet_transactions (id, user_id, amount, type, description, 
 VALUES 
   (gen_random_uuid(), '3c3c3c3c-3c3c-3c3c-3c3c-3c3c3c3c3c3c', 18500, 'ADD', 'Fresh vegetables supply - Sunrise Hotel (UPI Transfer)', now() - interval '5 months'),
   (gen_random_uuid(), '3c3c3c3c-3c3c-3c3c-3c3c-3c3c3c3c3c3c', 4200, 'SEND', 'Supplier Invoice - Patel Dairy (Bank Transfer)', now() - interval '5 months'),
+  (gen_random_uuid(), '3c3c3c3c-3c3c-3c3c-3c3c-3c3c3c3c3c3c', 1200, 'SEND', 'Packaging Supplies - PolyPack India (UPI)', now() - interval '5 months' + interval '5 days'),
+  (gen_random_uuid(), '3c3c3c3c-3c3c-3c3c-3c3c-3c3c3c3c3c3c', 9500, 'ADD', 'Organic produce sale - Green Shoots Cafe (UPI)', now() - interval '5 months' + interval '10 days'),
   
   (gen_random_uuid(), '3c3c3c3c-3c3c-3c3c-3c3c-3c3c3c3c3c3c', 24200, 'ADD', 'Fruits and vegetables - City Mart (Bank Transfer)', now() - interval '4 months'),
   (gen_random_uuid(), '3c3c3c3c-3c3c-3c3c-3c3c-3c3c3c3c3c3c', 2500, 'SEND', 'Utility Bill - BSES Electricity (Auto-debit)', now() - interval '4 months'),
   (gen_random_uuid(), '3c3c3c3c-3c3c-3c3c-3c3c-3c3c3c3c3c3c', 500, 'SEND', 'Mobile Recharge - Jio Prepaid', now() - interval '4 months'),
+  (gen_random_uuid(), '3c3c3c3c-3c3c-3c3c-3c3c-3c3c3c3c3c3c', 8000, 'SEND', 'Shop Rent - Gupta Realty (Bank Transfer)', now() - interval '4 months' + interval '2 days'),
+  (gen_random_uuid(), '3c3c3c3c-3c3c-3c3c-3c3c-3c3c3c3c3c3c', 15000, 'ADD', 'Daily Sales Settlement - BharatPe', now() - interval '4 months' + interval '15 days'),
   
   (gen_random_uuid(), '3c3c3c3c-3c3c-3c3c-3c3c-3c3c3c3c3c3c', 16800, 'ADD', 'Weekly produce delivery - Golden Residency (UPI Transfer)', now() - interval '3 months'),
   (gen_random_uuid(), '3c3c3c3c-3c3c-3c3c-3c3c-3c3c3c3c3c3c', 5100, 'SEND', 'Supplier Invoice - Aziz Wholesale (Bank Transfer)', now() - interval '3 months'),
+  (gen_random_uuid(), '3c3c3c3c-3c3c-3c3c-3c3c-3c3c3c3c3c3c', 8000, 'SEND', 'Shop Rent - Gupta Realty (Bank Transfer)', now() - interval '3 months' + interval '2 days'),
+  (gen_random_uuid(), '3c3c3c3c-3c3c-3c3c-3c3c-3c3c3c3c3c3c', 12500, 'ADD', 'Fruits sale - Imperial Club (UPI)', now() - interval '3 months' + interval '10 days'),
+  (gen_random_uuid(), '3c3c3c3c-3c3c-3c3c-3c3c-3c3c3c3c3c3c', 3500, 'SEND', 'Fuel Expense - Indian Oil Corp (UPI)', now() - interval '3 months' + interval '20 days'),
   
   (gen_random_uuid(), '3c3c3c3c-3c3c-3c3c-3c3c-3c3c3c3c3c3c', 31400, 'ADD', 'Bulk produce order - Fresh Basket Retail (UPI Transfer)', now() - interval '2 months'),
   (gen_random_uuid(), '3c3c3c3c-3c3c-3c3c-3c3c-3c3c3c3c3c3c', 2700, 'SEND', 'Utility Bill - BSES Electricity (Auto-debit)', now() - interval '2 months'),
+  (gen_random_uuid(), '3c3c3c3c-3c3c-3c3c-3c3c-3c3c3c3c3c3c', 8000, 'SEND', 'Shop Rent - Gupta Realty (Bank Transfer)', now() - interval '2 months' + interval '2 days'),
+  (gen_random_uuid(), '3c3c3c3c-3c3c-3c3c-3c3c-3c3c3c3c3c3c', 6000, 'SEND', 'Part-time Helper Salary - Ramesh Singh (UPI)', now() - interval '2 months' + interval '5 days'),
+  (gen_random_uuid(), '3c3c3c3c-3c3c-3c3c-3c3c-3c3c3c3c3c3c', 14000, 'ADD', 'Catering produce order - Royal Gardens (Bank Transfer)', now() - interval '2 months' + interval '12 days'),
   
   (gen_random_uuid(), '3c3c3c3c-3c3c-3c3c-3c3c-3c3c3c3c3c3c', 19100, 'ADD', 'Fresh vegetables supply - Sunrise Hotel (UPI Transfer)', now() - interval '1 month'),
   (gen_random_uuid(), '3c3c3c3c-3c3c-3c3c-3c3c-3c3c3c3c3c3c', 4500, 'SEND', 'Supplier Invoice - Patel Dairy (Bank Transfer)', now() - interval '1 month'),
   (gen_random_uuid(), '3c3c3c3c-3c3c-3c3c-3c3c-3c3c3c3c3c3c', 600, 'SEND', 'Mobile Recharge - Jio Prepaid', now() - interval '1 month'),
+  (gen_random_uuid(), '3c3c3c3c-3c3c-3c3c-3c3c-3c3c3c3c3c3c', 8000, 'SEND', 'Shop Rent - Gupta Realty (Bank Transfer)', now() - interval '1 month' + interval '2 days'),
+  (gen_random_uuid(), '3c3c3c3c-3c3c-3c3c-3c3c-3c3c3c3c3c3c', 6500, 'SEND', 'Part-time Helper Salary - Ramesh Singh (UPI)', now() - interval '1 month' + interval '5 days'),
+  (gen_random_uuid(), '3c3c3c3c-3c3c-3c3c-3c3c-3c3c3c3c3c3c', 11000, 'ADD', 'Vegetable stall daily collection - GPay', now() - interval '1 month' + interval '18 days'),
   
   (gen_random_uuid(), '3c3c3c3c-3c3c-3c3c-3c3c-3c3c3c3c3c3c', 25000, 'ADD', 'Weekly produce delivery - Golden Residency (UPI Transfer)', now() - interval '10 days'),
   (gen_random_uuid(), '3c3c3c3c-3c3c-3c3c-3c3c-3c3c3c3c3c3c', 3000, 'SEND', 'Utility Bill - BSES Electricity (Auto-debit)', now() - interval '5 days'),
+  (gen_random_uuid(), '3c3c3c3c-3c3c-3c3c-3c3c-3c3c3c3c3c3c', 8000, 'SEND', 'Shop Rent - Gupta Realty (Bank Transfer)', now() - interval '3 days'),
   (gen_random_uuid(), '3c3c3c3c-3c3c-3c3c-3c3c-3c3c3c3c3c3c', 28000, 'ADD', 'Fresh vegetables supply - Sunrise Hotel (UPI Transfer)', now() - interval '2 days');
 
 
@@ -308,15 +322,8 @@ WHERE id = '5e5e5e5e-5e5e-5e5e-5e5e-5e5e5e5e5e5e';
 --------------------------------------------------------------------------------
 -- 6. SEED LOANS (To populate Lender's portfolio)
 --------------------------------------------------------------------------------
--- Loan 1: Active Loan to GreenLeaf Fresh Produce (Good progress)
--- Principal: ₹3,00,000, 10% Interest, 12 Months. Total payback: ₹3,30,000. EMI: ₹27,500.
--- Accepted 5 months ago. Amount Paid: ₹1,37,500 (5 EMIs). Status: ACCEPTED.
-INSERT INTO public.loan_offers (
-  id, lender_id, vendor_id, amount, interest_rate, tenure, status, created_by, created_at, accepted_at, amount_paid
-) VALUES (
-  gen_random_uuid(), '5e5e5e5e-5e5e-5e5e-5e5e-5e5e5e5e5e5e', '3c3c3c3c-3c3c-3c3c-3c3c-3c3c3c3c3c3c',
-  300000, 10, '12 Months', 'ACCEPTED', 'LENDER', now() - interval '5 months', now() - interval '5 months', 137500
-);
+-- Loan 1: Active Loan to GreenLeaf Fresh Produce (Removed as per requirements)
+--------------------------------------------------------------------------------
 
 -- Loan 2: Closed/Fully Paid Loan to Rajesh Kumar
 -- Principal: ₹2,00,000, 12% Interest, 6 Months. Total payback: ₹2,24,000.
