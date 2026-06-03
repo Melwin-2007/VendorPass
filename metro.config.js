@@ -3,6 +3,9 @@ const path = require('path');
 
 const config = getDefaultConfig(__dirname);
 
+// Disable unstable package exports resolution to prevent Node.js built-ins from being loaded (e.g. stream, events in ws)
+config.resolver.unstable_enablePackageExports = false;
+
 config.resolver.resolveRequest = (context, moduleName, platform) => {
   if (moduleName === 'expo-secure-store') {
     return {
@@ -14,3 +17,4 @@ config.resolver.resolveRequest = (context, moduleName, platform) => {
 };
 
 module.exports = config;
+

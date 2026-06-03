@@ -36,11 +36,18 @@
           }
         }
       ],
-      "expo-secure-store"
+      "expo-secure-store",
+      "expo-image"
     ],
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "d20c2e91-64a4-4a4b-a0f8-393f3dd85630"
+      }
     }
   }
 }
