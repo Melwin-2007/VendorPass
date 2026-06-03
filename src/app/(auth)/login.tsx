@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   StyleSheet,
   View,
@@ -9,18 +9,15 @@ import {
   Platform,
   ScrollView,
   Text,
-  Image,
 } from 'react-native';
 import { router } from 'expo-router';
 import { useAuth } from '@/context/auth';
 import { useTheme } from '@/hooks/use-theme';
 import { Spacing } from '@/constants/theme';
 import { MaterialIcons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
-import { supabase } from '@/lib/supabase';
 
 export default function LoginScreen() {
-  const { signIn, signUp, loading, selectRole } = useAuth();
+  const { signIn, loading } = useAuth();
   const theme = useTheme();
 
   const [email, setEmail] = useState('');
@@ -30,7 +27,7 @@ export default function LoginScreen() {
   const [emailFocused, setEmailFocused] = useState(false);
   const [passwordFocused, setPasswordFocused] = useState(false);
 
-  const handleSignIn = async () => {
+  const handleSignIn = useCallback(async () => {
     if (!email || !password) {
       setErrorMessage('Please fill in all fields.');
       return;
@@ -42,7 +39,7 @@ export default function LoginScreen() {
     } else {
       setErrorMessage('Invalid credentials. Please try again.');
     }
-  };
+  }, [email, password, signIn]);
 
   return (
     <KeyboardAvoidingView
@@ -108,8 +105,8 @@ export default function LoginScreen() {
                 onChangeText={setEmail}
                 keyboardType="email-address"
                 autoCapitalize="none"
-                onFocus={() => setEmailFocused(true)}
-                onBlur={() => setEmailFocused(false)}
+                onFocus={() => Platform.OS === 'web' && setEmailFocused(true)}
+                onBlur={() => Platform.OS === 'web' && setEmailFocused(false)}
               />
             </View>
           </View>
@@ -142,8 +139,8 @@ export default function LoginScreen() {
                 value={password}
                 onChangeText={setPassword}
                 autoCapitalize="none"
-                onFocus={() => setPasswordFocused(true)}
-                onBlur={() => setPasswordFocused(false)}
+                onFocus={() => Platform.OS === 'web' && setPasswordFocused(true)}
+                onBlur={() => Platform.OS === 'web' && setPasswordFocused(false)}
               />
               <Pressable style={styles.eyeButton} onPress={() => setSecureText(!secureText)}>
                 <MaterialIcons
@@ -393,46 +390,6 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: '700',
-    fontFamily: Platform.OS === 'web' ? 'Sora' : 'sans-serif',
-  },
-  dividerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginVertical: Spacing.five,
-  },
-  dividerLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: '#E8E0D5',
-  },
-  dividerText: {
-    marginHorizontal: Spacing.three,
-    fontSize: 11,
-    fontWeight: 'bold',
-    color: '#6B6B6B',
-    letterSpacing: 1,
-    fontFamily: Platform.OS === 'web' ? 'Sora' : 'sans-serif',
-  },
-  googleButton: {
-    flexDirection: 'row',
-    height: 56,
-    borderWidth: 1.5,
-    borderColor: '#E8E0D5',
-    backgroundColor: '#ffffff',
-    borderRadius: 16,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: Spacing.four,
-  },
-  googleIcon: {
-    width: 24,
-    height: 24,
-    marginRight: Spacing.two,
-  },
-  googleButtonText: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#1C1C1E',
     fontFamily: Platform.OS === 'web' ? 'Sora' : 'sans-serif',
   },
   footerRow: {

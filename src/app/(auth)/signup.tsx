@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   StyleSheet,
   View,
@@ -43,7 +43,7 @@ export default function SignUpScreen() {
   const [agreeTerms, setAgreeTerms] = useState(false);
 
   // Password strength calculation
-  const getPasswordStrength = () => {
+  const getPasswordStrength = useCallback(() => {
     if (!password) return { score: 0, label: '', color: '#A0A0A0' };
     let score = 0;
     if (password.length >= 8) score++;
@@ -62,22 +62,20 @@ export default function SignUpScreen() {
       default:
         return { score: 0, label: '', color: '#A0A0A0' };
     }
-  };
+  }, [password]);
 
   const strength = getPasswordStrength();
 
-  const uploadImage = async (uri: string, path: string, mimeType: string): Promise<string> => {
-    // Convert file URI to blob
+  const uploadImage = useCallback(async (uri: string, pathName: string, mimeType: string): Promise<string> => {
     const response = await fetch(uri);
     const blob = await response.blob();
 
-    // Determine extension from mimeType (e.g. image/png -> png)
     const extParts = mimeType.split('/');
     const fileExt = extParts.length > 1 ? extParts[1].toLowerCase() : 'jpg';
     const cleanExt = fileExt === 'jpeg' ? 'jpg' : fileExt;
 
     const fileName = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}.${cleanExt}`;
-    const filePath = `${path}/${fileName}`;
+    const filePath = `${pathName}/${fileName}`;
 
     const { data, error } = await supabase.storage
       .from('documents')
@@ -90,15 +88,14 @@ export default function SignUpScreen() {
       throw error;
     }
 
-    // Retrieve public URL
     const { data: { publicUrl } } = supabase.storage
       .from('documents')
       .getPublicUrl(data.path);
 
     return publicUrl;
-  };
+  }, []);
 
-  const handlePickSelfie = async () => {
+  const handlePickSelfie = useCallback(async () => {
     if (selfieLoading) return;
     try {
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -130,9 +127,9 @@ export default function SignUpScreen() {
     } finally {
       setSelfieLoading(false);
     }
-  };
+  }, [selfieLoading, uploadImage]);
 
-  const handlePickBusiness = async () => {
+  const handlePickBusiness = useCallback(async () => {
     if (businessLoading) return;
     try {
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -164,9 +161,9 @@ export default function SignUpScreen() {
     } finally {
       setBusinessLoading(false);
     }
-  };
+  }, [businessLoading, uploadImage]);
 
-  const handleSignUp = async () => {
+  const handleSignUp = useCallback(async () => {
     if (!fullName || !username || !email || !phone || !password || !confirmPassword) return;
     if (password !== confirmPassword) return;
     if (!agreeTerms) return;
@@ -189,7 +186,7 @@ export default function SignUpScreen() {
     if (success) {
       router.replace('/(auth)/verify-email');
     }
-  };
+  }, [fullName, username, email, phone, password, confirmPassword, agreeTerms, selfie, businessPhoto, signUp]);
 
   const isFormValid = 
     !!fullName && 
@@ -311,8 +308,8 @@ export default function SignUpScreen() {
                   placeholderTextColor="#A0A0A0"
                   value={fullName}
                   onChangeText={setFullName}
-                  onFocus={() => setFocusedField('fullName')}
-                  onBlur={() => setFocusedField(null)}
+                  onFocus={() => Platform.OS === 'web' && setFocusedField('fullName')}
+                  onBlur={() => Platform.OS === 'web' && setFocusedField(null)}
                 />
               </View>
             </View>
@@ -334,8 +331,8 @@ export default function SignUpScreen() {
                   value={username}
                   onChangeText={setUsername}
                   autoCapitalize="none"
-                  onFocus={() => setFocusedField('username')}
-                  onBlur={() => setFocusedField(null)}
+                  onFocus={() => Platform.OS === 'web' && setFocusedField('username')}
+                  onBlur={() => Platform.OS === 'web' && setFocusedField(null)}
                 />
               </View>
             </View>
@@ -358,8 +355,8 @@ export default function SignUpScreen() {
                   onChangeText={setEmail}
                   keyboardType="email-address"
                   autoCapitalize="none"
-                  onFocus={() => setFocusedField('email')}
-                  onBlur={() => setFocusedField(null)}
+                  onFocus={() => Platform.OS === 'web' && setFocusedField('email')}
+                  onBlur={() => Platform.OS === 'web' && setFocusedField(null)}
                 />
               </View>
             </View>
@@ -385,8 +382,8 @@ export default function SignUpScreen() {
                   onChangeText={setPhone}
                   keyboardType="phone-pad"
                   maxLength={10}
-                  onFocus={() => setFocusedField('phone')}
-                  onBlur={() => setFocusedField(null)}
+                  onFocus={() => Platform.OS === 'web' && setFocusedField('phone')}
+                  onBlur={() => Platform.OS === 'web' && setFocusedField(null)}
                 />
               </View>
             </View>
@@ -409,8 +406,8 @@ export default function SignUpScreen() {
                   value={password}
                   onChangeText={setPassword}
                   autoCapitalize="none"
-                  onFocus={() => setFocusedField('password')}
-                  onBlur={() => setFocusedField(null)}
+                  onFocus={() => Platform.OS === 'web' && setFocusedField('password')}
+                  onBlur={() => Platform.OS === 'web' && setFocusedField(null)}
                 />
                 <Pressable onPress={() => setSecureText(!secureText)} style={styles.showButton}>
                   <Text style={styles.showButtonText}>{secureText ? 'SHOW' : 'HIDE'}</Text>
@@ -462,8 +459,8 @@ export default function SignUpScreen() {
                   value={confirmPassword}
                   onChangeText={setConfirmPassword}
                   autoCapitalize="none"
-                  onFocus={() => setFocusedField('confirmPassword')}
-                  onBlur={() => setFocusedField(null)}
+                  onFocus={() => Platform.OS === 'web' && setFocusedField('confirmPassword')}
+                  onBlur={() => Platform.OS === 'web' && setFocusedField(null)}
                 />
               </View>
               {confirmPassword && password !== confirmPassword ? (
@@ -497,7 +494,7 @@ export default function SignUpScreen() {
                   <ActivityIndicator size="small" color="#895100" />
                 ) : selfie ? (
                   <View style={styles.uploadedContainer}>
-                    <Image source={{ uri: selfie }} style={styles.uploadedImageCircle} />
+                     <Image source={{ uri: selfie }} style={styles.uploadedImageCircle} />
                     <View style={styles.editBadge}>
                       <SymbolView name="pencil" size={12} tintColor="#ffffff" />
                     </View>
@@ -662,15 +659,6 @@ const styles = StyleSheet.create({
     borderBottomColor: '#E8E0D5',
     backgroundColor: 'rgba(253, 249, 243, 0.9)',
     zIndex: 40,
-    ...Platform.select({
-      web: {
-        backdropFilter: 'blur(8px)',
-        WebkitBackdropFilter: 'blur(8px)',
-      },
-      default: {
-        // Show on mobile, hide on web md screen in mockup. We show it here by default.
-      },
-    }),
   },
   progressRow: {
     flexDirection: 'row',

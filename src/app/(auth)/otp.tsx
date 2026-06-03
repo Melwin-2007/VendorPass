@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   StyleSheet,
   View,
@@ -32,7 +32,7 @@ export default function OtpScreen() {
     }
   }, [timer]);
 
-  const handleChange = (text: string, index: number) => {
+  const handleChange = useCallback((text: string, index: number) => {
     setError('');
     const newPin = [...pin];
     newPin[index] = text;
@@ -42,9 +42,9 @@ export default function OtpScreen() {
     if (text && index < 5) {
       inputRefs.current[index + 1]?.focus();
     }
-  };
+  }, [pin]);
 
-  const handleKeyPress = (e: any, index: number) => {
+  const handleKeyPress = useCallback((e: any, index: number) => {
     if (e.nativeEvent.key === 'Backspace' && !pin[index] && index > 0) {
       // Auto-focus previous input on backspace
       const newPin = [...pin];
@@ -52,9 +52,9 @@ export default function OtpScreen() {
       setPin(newPin);
       inputRefs.current[index - 1]?.focus();
     }
-  };
+  }, [pin]);
 
-  const handleVerify = async () => {
+  const handleVerify = useCallback(async () => {
     const otpValue = pin.join('');
     if (otpValue.length < 6) {
       setError('Please enter the 6-digit verification code.');
@@ -69,19 +69,24 @@ export default function OtpScreen() {
       setPin(['', '', '', '', '', '']);
       inputRefs.current[0]?.focus();
     }
-  };
+  }, [pin, completeOtp]);
 
-  const handleResend = () => {
+  const handleResend = useCallback(() => {
     if (timer === 0) {
       setTimer(30);
       setPin(['', '', '', '', '', '']);
       inputRefs.current[0]?.focus();
     }
-  };
+  }, [timer]);
+
+  const setInputRef = useCallback((ref: TextInput | null, index: number) => {
+    inputRefs.current[index] = ref;
+  }, []);
 
   return (
     <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      enabled={Platform.OS === 'ios'}
+      behavior="padding"
       style={[styles.container, { backgroundColor: theme.background }]}>
       <View style={styles.content}>
         {/* Back Button */}
@@ -111,9 +116,7 @@ export default function OtpScreen() {
                 },
               ]}>
               <TextInput
-                ref={(ref) => {
-                  inputRefs.current[index] = ref;
-                }}
+                ref={(ref) => setInputRef(ref, index)}
                 style={[styles.otpInput, { color: theme.text }]}
                 keyboardType="number-pad"
                 maxLength={1}

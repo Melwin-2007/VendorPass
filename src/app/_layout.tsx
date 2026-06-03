@@ -1,13 +1,12 @@
-import { DarkTheme, DefaultTheme, ThemeProvider, Stack } from 'expo-router';
-import { useColorScheme, Platform } from 'react-native';
+import { DefaultTheme, ThemeProvider, Stack } from 'expo-router';
+import { Platform } from 'react-native';
 import Toast from 'react-native-toast-message';
 
 import { AuthProvider } from '@/context/auth';
 
 export default function RootLayout() {
-  const colorScheme = useColorScheme();
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+    <ThemeProvider value={DefaultTheme}>
       <AuthProvider>
         {Platform.OS === 'web' && (
           <style dangerouslySetInnerHTML={{ __html: `
